@@ -5,7 +5,10 @@ edition = "2021"
 authors = ["Andy Terra <spam@andyterra.com>"]
 description = "`sweeten` your daily `iced` brew"
 license = "MIT"
-repository = "https://github.com/airstrike/sweetener"
+repository = "https://github.com/airstrike/sweeten"
+keywords = ["gui", "iced", "widgets"]
+categories = ["gui"]
+readme = "README.md"
 
 [dependencies]
 iced.version = "0.13"
