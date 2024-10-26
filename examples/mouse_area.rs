@@ -63,19 +63,12 @@ impl App {
     }
 }
 
-fn block<'a>(label: &'a str, color: u32) -> Element<'a, Message> {
+fn block<'a>(label: &'a str, hex: u32) -> Element<'a, Message> {
     container(label)
         .align_y(Center)
         .align_x(Center)
         .width(Length::Fixed(300.0))
         .height(Length::Fixed(200.0))
-        .style(move |_| container::Style {
-            background: Some(color!(color).into()),
-            border: iced::Border {
-                radius: 5.0.into(),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
+        .style(move |_| container::background(color!(hex)))
         .into()
 }
