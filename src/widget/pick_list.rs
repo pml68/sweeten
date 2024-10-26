@@ -165,6 +165,7 @@ use crate::widget::overlay::menu::{self, Menu};
 /// }
 /// ```
 #[allow(missing_debug_implementations)]
+#[allow(clippy::type_complexity)]
 pub struct PickList<
     'a,
     T,
