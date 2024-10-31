@@ -2,6 +2,11 @@ use iced::advanced::text;
 use iced::Element;
 use std::borrow::Borrow;
 
+pub mod column;
+pub use self::column::column;
+pub mod row;
+pub use self::row::row;
+pub mod draggable;
 pub mod mouse_area;
 pub mod overlay;
 pub mod pick_list;

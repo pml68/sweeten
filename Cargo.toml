@@ -13,3 +13,7 @@ readme = "README.md"
 [dependencies]
 iced.version = "0.13"
 iced.features = ["advanced"]
+
+[dev-dependencies]
+iced.version = "0.13"
+iced.features = ["advanced", "debug"]
