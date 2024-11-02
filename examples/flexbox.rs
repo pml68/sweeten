@@ -356,11 +356,21 @@ enum Align {
     End,
     Center,
     Stretch,
+    Fit,
+    CenterFit,
+    EndFit,
 }
 
 impl Align {
-    const ALL: [Align; 4] =
-        [Align::Start, Align::End, Align::Center, Align::Stretch];
+    const ALL: [Align; 7] = [
+        Align::Start,
+        Align::End,
+        Align::Center,
+        Align::Stretch,
+        Align::Fit,
+        Align::CenterFit,
+        Align::EndFit,
+    ];
 }
 
 impl std::fmt::Display for Justify {
@@ -383,6 +393,9 @@ impl std::fmt::Display for Align {
             Align::End => write!(f, "End"),
             Align::Center => write!(f, "Center"),
             Align::Stretch => write!(f, "Stretch"),
+            Align::Fit => write!(f, "Fit"),
+            Align::CenterFit => write!(f, "Center Fit"),
+            Align::EndFit => write!(f, "End Fit"),
         }
     }
 }
@@ -425,6 +438,9 @@ impl From<Align> for FlexAlignment {
             Align::End => FlexAlignment::End,
             Align::Center => FlexAlignment::Center,
             Align::Stretch => FlexAlignment::Stretch,
+            Align::Fit => FlexAlignment::Fit,
+            Align::CenterFit => FlexAlignment::CenterFit,
+            Align::EndFit => FlexAlignment::EndFit,
         }
     }
 }

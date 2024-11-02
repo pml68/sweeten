@@ -98,14 +98,22 @@ pub enum FlexAlignment {
     Center,
     /// Stretch to fill the container (default)
     Stretch,
+    /// Make all items match the largest item's size, aligned at start
+    Fit,
+    /// Make all items match the largest item's size, centered
+    CenterFit,
+    /// Make all items match the largest item's size, aligned at end
+    EndFit,
 }
 
 impl From<FlexAlignment> for iced::Alignment {
     fn from(alignment: FlexAlignment) -> Self {
         match alignment {
-            FlexAlignment::Start => Alignment::Start,
-            FlexAlignment::End => Alignment::End,
-            FlexAlignment::Center | _ => Alignment::Center,
+            FlexAlignment::Start | FlexAlignment::Fit => Alignment::Start,
+            FlexAlignment::Center
+            | FlexAlignment::CenterFit
+            | FlexAlignment::Stretch => Alignment::Center,
+            FlexAlignment::End | FlexAlignment::EndFit => Alignment::End,
         }
     }
 }
@@ -263,28 +271,41 @@ where
             main_size -= shrink_amount;
         }
 
-        // Determine if this item should stretch based on alignment and Length properties
+        // Determine cross size based on alignment and properties
         let should_stretch =
             should_stretch || align_items == FlexAlignment::Stretch;
-        let cross_size = if should_stretch {
-            container_cross
-        } else {
-            axis.cross(node.size())
+        let cross_size = match align_items {
+            FlexAlignment::Stretch if should_stretch => container_cross,
+            FlexAlignment::Fit
+            | FlexAlignment::CenterFit
+            | FlexAlignment::EndFit => natural_cross_max,
+            _ => axis.cross(node.size()),
         };
 
         // Create limits for final layout
         let (width, height) = axis.pack(main_size, cross_size);
-        let child_limits = if should_stretch {
-            // Force the cross size for stretching items
-            let min_size = axis.pack(0.0, cross_size);
-            Limits::new(
-                Size::new(min_size.0, min_size.1),
-                Size::new(width, height),
-            )
-            .width(content.size().width)
-            .height(content.size().height)
-        } else {
-            Limits::new(Size::ZERO, Size::new(width, height))
+        let child_limits = match align_items {
+            FlexAlignment::Stretch if should_stretch => {
+                // Force the cross size for stretching items
+                let min_size = axis.pack(0.0, cross_size);
+                Limits::new(
+                    Size::new(min_size.0, min_size.1),
+                    Size::new(width, height),
+                )
+                .width(content.size().width)
+                .height(content.size().height)
+            }
+            FlexAlignment::Fit
+            | FlexAlignment::CenterFit
+            | FlexAlignment::EndFit => {
+                // Force all items to the same cross size
+                let min_size = axis.pack(0.0, cross_size);
+                Limits::new(
+                    Size::new(min_size.0, min_size.1),
+                    Size::new(width, height),
+                )
+            }
+            _ => Limits::new(Size::ZERO, Size::new(width, height)),
         };
 
         // Final layout
@@ -314,14 +335,13 @@ where
 
         // Calculate cross position
         let cross_offset = match align_items {
-            FlexAlignment::Start => padding.top,
-            FlexAlignment::End => {
+            FlexAlignment::End | FlexAlignment::EndFit => {
                 padding.top + container_cross - axis.cross(node.size())
             }
-            FlexAlignment::Center => {
+            FlexAlignment::Center | FlexAlignment::CenterFit => {
                 padding.top + (container_cross - axis.cross(node.size())) / 2.0
             }
-            FlexAlignment::Stretch => padding.top,
+            _ => padding.top,
         };
 
         let (x, y) = axis.pack(main, cross_offset);
@@ -331,15 +351,39 @@ where
     }
 
     // Calculate final size
-    let final_main = if justify_content == JustifyContent::Center {
-        container_main // Use full container size for centering
-    } else {
-        main + padding.right
+    let final_main = match (justify_content, width) {
+        (JustifyContent::Center, Length::Shrink) => {
+            // For shrink width and center justify, use only the space we need
+            main + padding.right
+        }
+        (JustifyContent::Center, _) => {
+            // For other widths, use full container size for centering
+            container_main
+        }
+        _ => main + padding.right,
     };
-    let final_cross = container_cross + padding.vertical();
 
-    let (width, height) = axis.pack(final_main, final_cross);
-    let size = limits.resolve(width, height, Size::new(width, height));
+    let final_cross = container_cross + padding.vertical();
+    let (axis_width, axis_height) = axis.pack(final_main, final_cross);
+
+    // When shrinking, use the actual content size instead of the full container
+    let intrinsic_size = Size::new(axis_width, axis_height);
+    let size = match axis {
+        Axis::Horizontal => match width {
+            Length::Shrink => limits.resolve(
+                Length::Fixed(final_main),
+                height,
+                intrinsic_size,
+            ),
+            _ => limits.resolve(width, height, intrinsic_size),
+        },
+        Axis::Vertical => match height {
+            Length::Shrink => {
+                limits.resolve(width, Length::Fixed(final_main), intrinsic_size)
+            }
+            _ => limits.resolve(width, height, intrinsic_size),
+        },
+    };
 
     Node::with_children(size, final_nodes)
 }

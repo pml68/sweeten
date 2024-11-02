@@ -838,10 +838,11 @@ where
         let mut y = 0.0;
 
         let align_factor = match self.row.align {
-            FlexAlignment::Start => 0.0,
-            FlexAlignment::Center => 2.0,
-            FlexAlignment::End => 1.0,
-            FlexAlignment::Stretch => 0.0,
+            FlexAlignment::Start
+            | FlexAlignment::Fit
+            | FlexAlignment::Stretch => 0.0,
+            FlexAlignment::Center | FlexAlignment::CenterFit => 2.0,
+            FlexAlignment::End | FlexAlignment::EndFit => 1.0,
         };
 
         let align = |row_start: std::ops::Range<usize>,
