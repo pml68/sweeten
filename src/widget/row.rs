@@ -25,7 +25,6 @@
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::widget::{tree, Operation, Tree, Widget};
 use iced::advanced::{overlay, renderer, Clipboard, Shell};
-use iced::alignment::{self, Alignment};
 use iced::event::{self, Event};
 use iced::{mouse, Transformation};
 use iced::{
@@ -33,15 +32,17 @@ use iced::{
     Rectangle, Size, Theme, Vector,
 };
 
-use crate::layout::flex::{self, JustifyContent};
+use crate::layout::flex::{self, FlexAlignment, FlexChild, JustifyContent};
 use crate::widget::draggable::{Action, DragEvent, DropPosition};
 
 pub fn row<'a, Message, Theme, Renderer>(
-    children: impl IntoIterator<Item = Element<'a, Message, Theme, Renderer>>,
+    children: impl IntoIterator<
+        Item = impl Into<Element<'a, Message, Theme, Renderer>>,
+    >,
 ) -> Row<'a, Message, Theme, Renderer>
 where
     Renderer: renderer::Renderer,
-    Theme: Catalog,
+    Theme: iced::widget::container::Catalog + Catalog + 'a,
 {
     Row::with_children(children)
 }
@@ -71,19 +72,20 @@ const DRAG_DEADBAND_DISTANCE: f32 = 5.0;
 /// }
 /// ```
 #[allow(missing_debug_implementations)]
-pub struct Row<'a, Message, Theme, Renderer = iced::Renderer>
+pub struct Row<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where
     Theme: Catalog,
+    Renderer: renderer::Renderer,
 {
     spacing: f32,
     padding: Padding,
     width: Length,
     height: Length,
-    align: Alignment,
+    align: FlexAlignment,
     justify: JustifyContent,
     clip: bool,
     deadband_zone: f32,
-    children: Vec<Element<'a, Message, Theme, Renderer>>,
+    children: Vec<FlexChild<'a, Message, Theme, Renderer>>,
     on_drag: Option<Box<dyn Fn(DragEvent) -> Message + 'a>>,
     class: Theme::Class<'a>,
 }
@@ -103,13 +105,44 @@ where
         Self::from_vec(Vec::with_capacity(capacity))
     }
 
-    /// Creates a [`Row`] with the given elements.
+    /// Creates a flex [`Row`] with the given elements.
     pub fn with_children(
-        children: impl IntoIterator<Item = Element<'a, Message, Theme, Renderer>>,
+        children: impl IntoIterator<
+            Item = impl Into<Element<'a, Message, Theme, Renderer>>,
+        >,
     ) -> Self {
-        let iterator = children.into_iter();
+        let iterator = children.into_iter().map(|child| FlexChild::new(child));
 
-        Self::with_capacity(iterator.size_hint().0).extend(iterator)
+        Self::with_capacity(iterator.size_hint().0).extend_flex(iterator)
+    }
+
+    /// Creates a [`Row`] with the given elements.
+    pub fn with_flex_children(
+        children: impl IntoIterator<
+            Item = impl Into<FlexChild<'a, Message, Theme, Renderer>>,
+        >,
+    ) -> Self {
+        let iterator = children.into_iter().map(Into::into);
+        Self::with_capacity(iterator.size_hint().0).extend_flex(iterator)
+    }
+
+    /// Adds an [`Element`] to the [`Row`].
+    pub fn push(
+        mut self,
+        child: impl Into<Element<'a, Message, Theme, Renderer>>,
+    ) -> Self {
+        let flex_child = FlexChild::new(child);
+        self.children.push(flex_child);
+        self
+    }
+
+    // Adds a `FlexChild` to the Column.
+    pub fn push_flex(
+        mut self,
+        child: impl Into<FlexChild<'a, Message, Theme, Renderer>>,
+    ) -> Self {
+        self.children.push(child.into());
+        self
     }
 
     /// Creates a [`Row`] from an already allocated [`Vec`].
@@ -120,15 +153,15 @@ where
     /// If any of the children have a [`Length::Fill`] strategy, you will need to
     /// call [`Row::width`] or [`Row::height`] accordingly.
     pub fn from_vec(
-        children: Vec<Element<'a, Message, Theme, Renderer>>,
+        children: Vec<FlexChild<'a, Message, Theme, Renderer>>,
     ) -> Self {
         Self {
             spacing: 0.0,
             padding: Padding::ZERO,
             width: Length::Shrink,
             height: Length::Shrink,
-            align: Alignment::Start,
-            justify: JustifyContent::Start,
+            align: FlexAlignment::Center,
+            justify: JustifyContent::Center,
             clip: false,
             deadband_zone: DRAG_DEADBAND_DISTANCE,
             children,
@@ -165,9 +198,9 @@ where
         self
     }
 
-    /// Sets the vertical alignment of the contents of the [`Row`] .
-    pub fn align_y(mut self, align: impl Into<alignment::Vertical>) -> Self {
-        self.align = Alignment::from(align.into());
+    /// Sets the vertical alignment of the items of the [`Row`] .
+    pub fn align(mut self, align: impl Into<FlexAlignment>) -> Self {
+        self.align = align.into();
         self
     }
 
@@ -190,21 +223,6 @@ where
         self
     }
 
-    /// Adds an [`Element`] to the [`Row`].
-    pub fn push(
-        mut self,
-        child: impl Into<Element<'a, Message, Theme, Renderer>>,
-    ) -> Self {
-        let child = child.into();
-        let child_size = child.as_widget().size_hint();
-
-        self.width = self.width.enclose(child_size.width);
-        self.height = self.height.enclose(child_size.height);
-
-        self.children.push(child);
-        self
-    }
-
     /// Adds an element to the [`Row`], if `Some`.
     pub fn push_maybe(
         self,
@@ -212,6 +230,18 @@ where
     ) -> Self {
         if let Some(child) = child {
             self.push(child)
+        } else {
+            self
+        }
+    }
+
+    /// Adds a flex element to the [`Row`], if `Some`.
+    pub fn push_maybe_flex(
+        self,
+        child: Option<impl Into<FlexChild<'a, Message, Theme, Renderer>>>,
+    ) -> Self {
+        if let Some(child) = child {
+            self.push_flex(child)
         } else {
             self
         }
@@ -237,9 +267,25 @@ where
     /// Extends the [`Row`] with the given children.
     pub fn extend(
         self,
-        children: impl IntoIterator<Item = Element<'a, Message, Theme, Renderer>>,
+        children: impl IntoIterator<
+            Item = impl Into<Element<'a, Message, Theme, Renderer>>,
+        >,
     ) -> Self {
-        children.into_iter().fold(self, Self::push)
+        children
+            .into_iter()
+            .fold(self, |row, child| row.push(child))
+    }
+
+    /// Extends the [`Row`] with the given children.
+    pub fn extend_flex(
+        self,
+        children: impl IntoIterator<
+            Item = impl Into<FlexChild<'a, Message, Theme, Renderer>>,
+        >,
+    ) -> Self {
+        children
+            .into_iter()
+            .fold(self, |row, child| row.push_flex(child))
     }
 
     /// Turns the [`Row`] into a [`Wrapping`] row.
@@ -317,7 +363,8 @@ impl<'a, Message, Theme, Renderer: renderer::Renderer>
     FromIterator<Element<'a, Message, Theme, Renderer>>
     for Row<'a, Message, Theme, Renderer>
 where
-    Theme: Catalog,
+    Theme: iced::widget::container::Catalog + Catalog + 'a,
+    Renderer: renderer::Renderer,
 {
     fn from_iter<
         T: IntoIterator<Item = Element<'a, Message, Theme, Renderer>>,
@@ -343,11 +390,15 @@ where
     }
 
     fn children(&self) -> Vec<Tree> {
-        self.children.iter().map(Tree::new).collect()
+        self.children.iter().map(FlexChild::state).collect()
     }
 
     fn diff(&self, tree: &mut Tree) {
-        tree.diff_children(&self.children);
+        tree.diff_children_custom(
+            &self.children,
+            |state, children| children.diff(state),
+            FlexChild::state,
+        );
     }
 
     fn size(&self) -> Size<Length> {
@@ -391,9 +442,7 @@ where
                 .zip(&mut tree.children)
                 .zip(layout.children())
                 .for_each(|((child, state), layout)| {
-                    child
-                        .as_widget()
-                        .operate(state, layout, renderer, operation);
+                    child.operate(state, layout, renderer, operation);
                 });
         });
     }
@@ -513,7 +562,7 @@ where
             .zip(&mut tree.children)
             .zip(layout.children())
             .map(|((child, state), layout)| {
-                child.as_widget_mut().on_event(
+                child.on_event(
                     state,
                     event.clone(),
                     layout,
@@ -546,9 +595,8 @@ where
         self.children
             .iter()
             .zip(&tree.children)
-            .zip(layout.children())
-            .map(|((child, state), layout)| {
-                child.as_widget().mouse_interaction(
+            .map(|(child, state)| {
+                child.mouse_interaction(
                     state, layout, cursor, viewport, renderer,
                 )
             })
@@ -610,7 +658,7 @@ where
                                 renderer.with_layer(
                                     child_layout.bounds(),
                                     |renderer| {
-                                        child.as_widget().draw(
+                                        child.draw(
                                             state,
                                             renderer,
                                             theme,
@@ -641,7 +689,7 @@ where
                         let translation =
                             Vector::new(offset as f32 * drag_width, 0.0);
                         renderer.with_translation(translation, |renderer| {
-                            child.as_widget().draw(
+                            child.draw(
                                 state,
                                 renderer,
                                 theme,
@@ -692,7 +740,7 @@ where
                     .zip(&tree.children)
                     .zip(layout.children())
                 {
-                    child.as_widget().draw(
+                    child.draw(
                         state, renderer, theme, defaults, layout, cursor,
                         viewport,
                     );
@@ -708,13 +756,18 @@ where
         renderer: &Renderer,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
-        overlay::from_children(
-            &mut self.children,
-            tree,
-            layout,
-            renderer,
-            translation,
-        )
+        let children = self
+            .children
+            .iter_mut()
+            .zip(&mut tree.children)
+            .zip(layout.children())
+            .filter_map(|((child, state), layout)| {
+                child.overlay(state, layout, renderer, translation)
+            })
+            .collect::<Vec<_>>();
+
+        (!children.is_empty())
+            .then(|| overlay::Group::with_children(children).overlay())
     }
 }
 
@@ -740,6 +793,7 @@ where
 pub struct Wrapping<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where
     Theme: Catalog,
+    Renderer: renderer::Renderer,
 {
     row: Row<'a, Message, Theme, Renderer>,
 }
@@ -784,9 +838,10 @@ where
         let mut y = 0.0;
 
         let align_factor = match self.row.align {
-            Alignment::Start => 0.0,
-            Alignment::Center => 2.0,
-            Alignment::End => 1.0,
+            FlexAlignment::Start => 0.0,
+            FlexAlignment::Center => 2.0,
+            FlexAlignment::End => 1.0,
+            FlexAlignment::Stretch => 0.0,
         };
 
         let align = |row_start: std::ops::Range<usize>,
@@ -805,11 +860,7 @@ where
         };
 
         for (i, child) in self.row.children.iter().enumerate() {
-            let node = child.as_widget().layout(
-                &mut tree.children[i],
-                renderer,
-                &limits,
-            );
+            let node = child.layout(&mut tree.children[i], renderer, &limits);
 
             let child_size = node.size();
 
