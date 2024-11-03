@@ -5,9 +5,8 @@ use iced::Length::Fill;
 use iced::{Center, Element, Task, Theme};
 
 use sweeten::layout::flex::{FlexAlignment, FlexChild, JustifyContent};
-use sweeten::widget::column::Column;
 use sweeten::widget::draggable::{DragEvent, DropPosition};
-use sweeten::widget::row::{row, Row};
+use sweeten::widget::{row, Column, Row};
 
 pub fn main() -> iced::Result {
     iced::application(
@@ -340,8 +339,8 @@ enum Justify {
 impl Justify {
     const ALL: [Justify; 6] = [
         Justify::Start,
-        Justify::End,
         Justify::Center,
+        Justify::End,
         Justify::SpaceBetween,
         Justify::SpaceAround,
         Justify::SpaceEvenly,
@@ -363,8 +362,8 @@ enum Align {
 impl Align {
     const ALL: [Align; 7] = [
         Align::Start,
-        Align::End,
         Align::Center,
+        Align::End,
         Align::Stretch,
         Align::Fit,
         Align::CenterFit,
@@ -376,8 +375,8 @@ impl std::fmt::Display for Justify {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Justify::Start => write!(f, "Start"),
-            Justify::End => write!(f, "End"),
             Justify::Center => write!(f, "Center"),
+            Justify::End => write!(f, "End"),
             Justify::SpaceBetween => write!(f, "Space Between"),
             Justify::SpaceAround => write!(f, "Space Around"),
             Justify::SpaceEvenly => write!(f, "Space Evenly"),
@@ -389,8 +388,8 @@ impl std::fmt::Display for Align {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Align::Start => write!(f, "Start"),
-            Align::End => write!(f, "End"),
             Align::Center => write!(f, "Center"),
+            Align::End => write!(f, "End"),
             Align::Stretch => write!(f, "Stretch"),
             Align::Fit => write!(f, "Fit"),
             Align::CenterFit => write!(f, "Center Fit"),

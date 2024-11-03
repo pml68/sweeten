@@ -35,18 +35,6 @@ use iced::{
 use crate::layout::flex::{self, FlexAlignment, FlexChild, JustifyContent};
 use crate::widget::draggable::{Action, DragEvent, DropPosition};
 
-pub fn row<'a, Message, Theme, Renderer>(
-    children: impl IntoIterator<
-        Item = impl Into<Element<'a, Message, Theme, Renderer>>,
-    >,
-) -> Row<'a, Message, Theme, Renderer>
-where
-    Renderer: renderer::Renderer,
-    Theme: iced::widget::container::Catalog + Catalog + 'a,
-{
-    Row::with_children(children)
-}
-
 const DRAG_DEADBAND_DISTANCE: f32 = 5.0;
 
 /// A container that distributes its contents horizontally.
