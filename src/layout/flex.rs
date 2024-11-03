@@ -5,7 +5,7 @@ use iced::{Alignment, Element, Length, Padding, Point, Size};
 pub mod child;
 pub use child::{FlexChild, FlexProperties};
 
-/// Easily create a [`FlexChild`] with additional configuration options
+/// Create a [`FlexChild`] with additional configuration options
 pub fn flex<'a, E, Message, Theme, Renderer>(
     element: E,
 ) -> FlexChild<'a, Message, Theme, Renderer>
@@ -68,9 +68,9 @@ pub enum JustifyContent {
 impl From<JustifyContent> for Alignment {
     fn from(justify: JustifyContent) -> Self {
         match justify {
-            JustifyContent::Start => Alignment::Start,
             JustifyContent::End => Alignment::End,
-            JustifyContent::Center | _ => Alignment::Center,
+            JustifyContent::Center => Alignment::Center,
+            JustifyContent::Start | _ => Alignment::Start,
         }
     }
 }
@@ -308,32 +308,52 @@ where
             _ => Limits::new(Size::ZERO, Size::new(width, height)),
         };
 
-        // Final layout
         node = content.layout(tree, renderer, &child_limits);
         final_nodes.push(node);
     }
 
-    // Calculate total size used by children
+    // Calculate content size
     let total_main = final_nodes
         .iter()
         .fold(0.0, |acc, node| acc + axis.main(node.size()))
         + total_spacing;
 
-    // Calculate spacing for justify-content
-    let container_main = axis.main(limits.max());
-    let available_main = (container_main - total_main).max(0.0);
-    let (initial_offset, item_spacing) =
-        compute_spacing(justify_content, available_main, final_nodes.len());
+    // Determine if we need full width for spacing
+    let needs_full_main = matches!(
+        justify_content,
+        JustifyContent::SpaceBetween
+            | JustifyContent::SpaceAround
+            | JustifyContent::SpaceEvenly
+    );
 
-    // Position nodes
-    let mut main = padding.left + initial_offset;
+    // Calculate final container size
+    let final_main = if needs_full_main {
+        // Use full available space for Space* variants
+        axis.main(limits.max())
+    } else {
+        // Use content size for Start/Center/End
+        total_main + padding.horizontal()
+    };
+    let final_cross = container_cross + padding.vertical();
+
+    // Calculate spacing for items within the container
+    let available_space = if needs_full_main {
+        final_main - total_main - padding.horizontal()
+    } else {
+        0.0
+    };
+
+    let (item_initial_offset, item_spacing) =
+        compute_spacing(justify_content, available_space, final_nodes.len());
+
+    // Position nodes within container bounds
+    let mut main = padding.left + item_initial_offset;
 
     for (i, node) in final_nodes.iter_mut().enumerate() {
         if i > 0 {
             main += spacing + item_spacing;
         }
 
-        // Calculate cross position
         let cross_offset = match align_items {
             FlexAlignment::End | FlexAlignment::EndFit => {
                 padding.top + container_cross - axis.cross(node.size())
@@ -350,40 +370,50 @@ where
         main += axis.main(node.size());
     }
 
-    // Calculate final size
-    let final_main = match (justify_content, width) {
-        (JustifyContent::Center, Length::Shrink) => {
-            // For shrink width and center justify, use only the space we need
-            main + padding.right
-        }
-        (JustifyContent::Center, _) => {
-            // For other widths, use full container size for centering
-            container_main
-        }
-        _ => main + padding.right,
-    };
+    // Create container with proper size
+    let container_size = axis.pack(final_main, final_cross);
+    let intrinsic_size = Size::new(container_size.0, container_size.1);
 
-    let final_cross = container_cross + padding.vertical();
-    let (axis_width, axis_height) = axis.pack(final_main, final_cross);
-
-    // When shrinking, use the actual content size instead of the full container
-    let intrinsic_size = Size::new(axis_width, axis_height);
+    // Resolve final size based on length constraints
     let size = match axis {
         Axis::Horizontal => match width {
-            Length::Shrink => limits.resolve(
-                Length::Fixed(final_main),
-                height,
-                intrinsic_size,
-            ),
+            Length::Shrink if !needs_full_main => {
+                // Only shrink if not using Space* variants
+                limits.resolve(
+                    Length::Fixed(final_main),
+                    height,
+                    intrinsic_size,
+                )
+            }
             _ => limits.resolve(width, height, intrinsic_size),
         },
         Axis::Vertical => match height {
-            Length::Shrink => {
+            Length::Shrink if !needs_full_main => {
+                // Only shrink if not using Space* variants
                 limits.resolve(width, Length::Fixed(final_main), intrinsic_size)
             }
             _ => limits.resolve(width, height, intrinsic_size),
         },
     };
 
-    Node::with_children(size, final_nodes)
+    // Calculate offset (only for non-Space* variants)
+    let offset = if !needs_full_main {
+        match justify_content {
+            JustifyContent::Start => 0.0,
+            JustifyContent::End => axis.main(limits.max()) - final_main,
+            JustifyContent::Center => {
+                (axis.main(limits.max()) - final_main) / 2.0
+            }
+            _ => 0.0,
+        }
+    } else {
+        0.0
+    };
+
+    // Create final node with appropriate offset
+    let (offset_x, offset_y) = axis.pack(offset, 0.0);
+    let mut container = Node::with_children(size, final_nodes);
+    container.move_to_mut(Point::new(offset_x, offset_y));
+
+    container
 }

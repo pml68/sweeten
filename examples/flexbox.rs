@@ -203,39 +203,36 @@ impl App {
             false => (iced_layout, flex_layout),
         };
 
-        let align_y: iced::alignment::Vertical = self.justify.into();
-        let align_x: iced::alignment::Horizontal = self.justify.into();
+        // Here we give the `iced` layout the closest equivalent to the flexbox
+        // properties. We use the `align` property to align the children within
+        // the container, and the `justify` property to align the container
+        let justify_y = iced::alignment::Vertical::from(self.justify);
+        let justify_x = iced::alignment::Horizontal::from(self.justify);
+
+        let align_x = iced::alignment::Horizontal::from(self.align);
+        let align_y = iced::alignment::Vertical::from(self.align);
         let row_column_alignment = {
             match self.mode {
-                Mode::Column => label(
-                    "Column X",
-                    format!(
-                        "{:?}",
-                        iced::alignment::Horizontal::from(self.align)
-                    ),
-                ),
-                Mode::Row => label(
-                    "Row Y",
-                    format!(
-                        "{:?}",
-                        iced::alignment::Vertical::from(self.align)
-                    ),
-                ),
+                Mode::Column => label("Column X", format!("{:?}", align_x)),
+                Mode::Row => label("Row Y", format!("{:?}", align_y)),
             }
         };
 
         // Create the side-by-side containers
         let iced_container = iced_column![
             container(iced_layout)
-                .align_x(align_x)
-                .align_y(align_y)
+                .align_x(justify_x)
+                .align_y(justify_y)
                 .width(Fill)
                 .height(Fill)
                 .padding(20)
                 .style(style::bordered),
             iced_row![
-                label("Container Y", format!("{align_y:?}")),
-                label("Container X", format!("{align_x:?}")),
+                label(
+                    "Container Align",
+                    format!("{justify_y:?}/{justify_x:?}")
+                ),
+                label("Container Length", "Fill/Fill"),
                 row_column_alignment,
             ]
             .align_y(Center)
@@ -245,6 +242,8 @@ impl App {
 
         let flex_container = iced_column![
             container(flex_layout)
+                .align_x(justify_x)
+                .align_y(justify_y)
                 .width(Fill)
                 .height(Fill)
                 .padding(20)

@@ -417,7 +417,7 @@ where
     ) -> layout::Node {
         let limits = limits.max_width(self.max_width);
 
-        debug(flex::resolve(
+        flex::resolve(
             flex::Axis::Vertical,
             renderer,
             &limits,
@@ -429,7 +429,7 @@ where
             self.align,
             &self.children,
             &mut tree.children,
-        ))
+        )
     }
 
     fn operate(
@@ -846,12 +846,4 @@ pub fn default(theme: &Theme) -> Style {
             .scale_alpha(0.2)
             .into(),
     }
-}
-
-pub fn debug<T>(value: T) -> T
-where
-    T: std::fmt::Debug,
-{
-    println!("{:?}", value);
-    value
 }
