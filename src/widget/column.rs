@@ -150,8 +150,8 @@ where
             width: Length::Shrink,
             height: Length::Shrink,
             max_width: f32::INFINITY,
-            align: FlexAlignment::Center,
-            justify: JustifyContent::Center,
+            align: FlexAlignment::Start,
+            justify: JustifyContent::Start,
             clip: false,
             deadband_zone: DRAG_DEADBAND_DISTANCE,
             children,
@@ -428,11 +428,13 @@ where
         operation: &mut dyn Operation,
     ) {
         operation.container(None, layout.bounds(), &mut |operation| {
-            self.children.iter().zip(&mut tree.children).for_each(
-                |(child, state)| {
+            self.children
+                .iter()
+                .zip(&mut tree.children)
+                .zip(layout.children())
+                .for_each(|((child, state), layout)| {
                     child.operate(state, layout, renderer, operation);
-                },
-            );
+                });
         });
     }
 
@@ -584,7 +586,8 @@ where
         self.children
             .iter()
             .zip(&tree.children)
-            .map(|(child, state)| {
+            .zip(layout.children())
+            .map(|((child, state), layout)| {
                 child.mouse_interaction(
                     state, layout, cursor, viewport, renderer,
                 )

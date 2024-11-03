@@ -113,12 +113,14 @@ where
     Renderer: renderer::Renderer,
 {
     pub(crate) fn state(&self) -> Tree {
-        Tree::new(&self.content)
+        Tree {
+            children: vec![Tree::new(&self.content)],
+            ..Tree::empty()
+        }
     }
 
     pub(crate) fn diff(&self, tree: &mut Tree) {
-        // tree.diff(&self.content);
-        self.content.as_widget().diff(tree);
+        tree.children[0].diff(&self.content);
     }
 
     /// Delegate layout to the inner content, letting the container of this
@@ -129,9 +131,9 @@ where
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        let node = self.content.as_widget().layout(tree, renderer, limits);
-        eprintln!("FlexChild layout: {:?}", node);
-        node
+        self.content
+            .as_widget()
+            .layout(&mut tree.children[0], renderer, limits)
     }
 
     /// Delegate drawing to the inner content
@@ -145,9 +147,15 @@ where
         cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
-        self.content
-            .as_widget()
-            .draw(tree, renderer, theme, style, layout, cursor, viewport)
+        self.content.as_widget().draw(
+            &tree.children[0],
+            renderer,
+            theme,
+            style,
+            layout,
+            cursor,
+            viewport,
+        )
     }
 
     /// Delegate event handling to the inner content
@@ -163,7 +171,14 @@ where
         viewport: &Rectangle,
     ) -> event::Status {
         self.content.as_widget_mut().on_event(
-            tree, event, layout, cursor, renderer, clipboard, shell, viewport,
+            &mut tree.children[0],
+            event,
+            layout,
+            cursor,
+            renderer,
+            clipboard,
+            shell,
+            viewport,
         )
     }
 
@@ -175,9 +190,12 @@ where
         renderer: &Renderer,
         operation: &mut dyn widget::Operation,
     ) {
-        self.content
-            .as_widget()
-            .operate(tree, layout, renderer, operation)
+        self.content.as_widget().operate(
+            &mut tree.children[0],
+            layout,
+            renderer,
+            operation,
+        )
     }
 
     /// Draw the overlay of the inner content
@@ -189,7 +207,7 @@ where
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
         self.content.as_widget_mut().overlay(
-            tree,
+            &mut tree.children[0],
             layout,
             renderer,
             translation,
@@ -205,17 +223,13 @@ where
         viewport: &Rectangle,
         renderer: &Renderer,
     ) -> mouse::Interaction {
-        if let Some(layout_children) = layout.children().next() {
-            self.content.as_widget().mouse_interaction(
-                tree,
-                layout_children,
-                cursor,
-                viewport,
-                renderer,
-            )
-        } else {
-            mouse::Interaction::default()
-        }
+        self.content.as_widget().mouse_interaction(
+            &tree.children[0],
+            layout,
+            cursor,
+            viewport,
+            renderer,
+        )
     }
 }
 

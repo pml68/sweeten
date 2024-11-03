@@ -70,7 +70,10 @@ impl From<JustifyContent> for Alignment {
         match justify {
             JustifyContent::End => Alignment::End,
             JustifyContent::Center => Alignment::Center,
-            JustifyContent::Start | _ => Alignment::Start,
+            JustifyContent::Start => Alignment::Start,
+            JustifyContent::SpaceAround => Alignment::Start,
+            JustifyContent::SpaceBetween => Alignment::Start,
+            JustifyContent::SpaceEvenly => Alignment::Start,
         }
     }
 }
@@ -109,11 +112,13 @@ pub enum FlexAlignment {
 impl From<FlexAlignment> for iced::Alignment {
     fn from(alignment: FlexAlignment) -> Self {
         match alignment {
-            FlexAlignment::Start | FlexAlignment::Fit => Alignment::Start,
-            FlexAlignment::Center
-            | FlexAlignment::CenterFit
-            | FlexAlignment::Stretch => Alignment::Center,
-            FlexAlignment::End | FlexAlignment::EndFit => Alignment::End,
+            FlexAlignment::Start => Alignment::Start,
+            FlexAlignment::Fit => Alignment::Start,
+            FlexAlignment::Center => Alignment::Center,
+            FlexAlignment::CenterFit => Alignment::Center,
+            FlexAlignment::Stretch => Alignment::Center,
+            FlexAlignment::End => Alignment::End,
+            FlexAlignment::EndFit => Alignment::End,
         }
     }
 }
@@ -230,7 +235,8 @@ where
 
         // Initial layout with natural size
         let child_limits = Limits::new(Size::ZERO, limits.max());
-        let node = content.layout(tree, renderer, &child_limits);
+        let node =
+            content.layout(&mut tree.children[0], renderer, &child_limits);
         natural_cross_max = natural_cross_max.max(axis.cross(node.size()));
         nodes.push((node, properties, should_stretch));
     }
@@ -308,7 +314,7 @@ where
             _ => Limits::new(Size::ZERO, Size::new(width, height)),
         };
 
-        node = content.layout(tree, renderer, &child_limits);
+        node = content.layout(&mut tree.children[0], renderer, &child_limits);
         final_nodes.push(node);
     }
 
