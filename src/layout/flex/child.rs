@@ -48,13 +48,47 @@ impl<'a, Message, Theme, Renderer> FlexChild<'a, Message, Theme, Renderer>
 where
     Renderer: renderer::Renderer,
 {
-    /// Creates a new FlexChild with default properties
+    /// Creates a new FlexChild with properties derived from the element
     pub fn new(
         content: impl Into<Element<'a, Message, Theme, Renderer>>,
     ) -> Self {
+        let content = content.into();
+        let widget_size = content.as_widget().size();
+
+        let (width, height) = (widget_size.width, widget_size.height);
+
+        // Check both dimensions for fill behavior
+        let is_fill = width.is_fill() || height.is_fill();
+        let is_fixed = matches!(
+            (width, height),
+            (Length::Fixed(_), _) | (_, Length::Fixed(_))
+        );
+
+        // Get fluid variants to check shrink behavior
+        let width_fluid = width.fluid();
+        let height_fluid = height.fluid();
+        let can_shrink = matches!(
+            (width_fluid, height_fluid),
+            (Length::Shrink, _) | (_, Length::Shrink)
+        );
+
+        let properties = FlexProperties {
+            grow: if is_fill { 1.0 } else { 0.0 },
+            // Only allow shrinking if not fixed and can shrink
+            shrink: if is_fixed {
+                0.0
+            } else if can_shrink {
+                1.0
+            } else {
+                0.0
+            },
+            basis: None,
+            can_stretch: is_fill,
+        };
+
         Self {
-            content: content.into(),
-            properties: FlexProperties::default(),
+            content,
+            properties,
         }
     }
 

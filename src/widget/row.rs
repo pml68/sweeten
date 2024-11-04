@@ -99,8 +99,7 @@ where
             Item = impl Into<Element<'a, Message, Theme, Renderer>>,
         >,
     ) -> Self {
-        let iterator = children.into_iter().map(|child| FlexChild::new(child));
-
+        let iterator = children.into_iter().map(FlexChild::new);
         Self::with_capacity(iterator.size_hint().0).extend_flex(iterator)
     }
 
@@ -148,8 +147,8 @@ where
             padding: Padding::ZERO,
             width: Length::Shrink,
             height: Length::Shrink,
-            align: FlexAlignment::Center,
-            justify: JustifyContent::Center,
+            align: FlexAlignment::Start,
+            justify: JustifyContent::Start,
             clip: false,
             deadband_zone: DRAG_DEADBAND_DISTANCE,
             children,
@@ -405,7 +404,7 @@ where
         flex::resolve(
             flex::Axis::Horizontal,
             renderer,
-            limits,
+            &limits,
             self.width,
             self.height,
             self.padding,
@@ -448,75 +447,79 @@ where
     ) -> event::Status {
         let mut event_status = event::Status::Ignored;
 
-        let action = tree.state.downcast_mut::<Action>();
+        if let Some(on_drag) = &self.on_drag {
+            let action = tree.state.downcast_mut::<Action>();
 
-        match event {
-            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
-                if let Some(cursor_position) =
-                    cursor.position_over(layout.bounds())
-                {
-                    for (index, child_layout) in layout.children().enumerate() {
-                        if child_layout.bounds().contains(cursor_position) {
-                            *action = Action::Picking {
-                                index,
-                                origin: cursor_position,
-                            };
-                            event_status = event::Status::Captured;
-                            break;
-                        }
-                    }
-                }
-            }
-            Event::Mouse(mouse::Event::CursorMoved { .. }) => {
-                match *action {
-                    Action::Picking { index, origin } => {
-                        if let Some(cursor_position) = cursor.position() {
-                            if cursor_position.distance(origin)
-                                > self.deadband_zone
-                            {
-                                // Start dragging
-                                *action = Action::Dragging {
+            match event {
+                Event::Mouse(mouse::Event::ButtonPressed(
+                    mouse::Button::Left,
+                )) => {
+                    if let Some(cursor_position) =
+                        cursor.position_over(layout.bounds())
+                    {
+                        for (index, child_layout) in
+                            layout.children().enumerate()
+                        {
+                            if child_layout.bounds().contains(cursor_position) {
+                                *action = Action::Picking {
                                     index,
-                                    origin,
-                                    last_cursor: cursor_position,
+                                    origin: cursor_position,
                                 };
-                                if let Some(on_reorder) = &self.on_drag {
-                                    shell.publish(on_reorder(
-                                        DragEvent::Picked { index },
-                                    ));
-                                }
                                 event_status = event::Status::Captured;
+                                break;
                             }
                         }
                     }
-                    Action::Dragging { origin, index, .. } => {
-                        if let Some(cursor_position) = cursor.position() {
-                            *action = Action::Dragging {
-                                last_cursor: cursor_position,
-                                origin,
-                                index,
-                            };
-                            event_status = event::Status::Captured;
-                        }
-                    }
-                    _ => {}
                 }
-            }
-            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => {
-                match *action {
-                    Action::Dragging { index, .. } => {
-                        if let Some(cursor_position) = cursor.position() {
-                            let bounds = layout.bounds();
-                            if bounds.contains(cursor_position) {
-                                let (target_index, drop_position) = self
-                                    .compute_target_index(
-                                        cursor_position,
-                                        layout,
+                Event::Mouse(mouse::Event::CursorMoved { .. }) => {
+                    match *action {
+                        Action::Picking { index, origin } => {
+                            if let Some(cursor_position) = cursor.position() {
+                                if cursor_position.distance(origin)
+                                    > self.deadband_zone
+                                {
+                                    // Start dragging
+                                    *action = Action::Dragging {
                                         index,
-                                    );
+                                        origin,
+                                        last_cursor: cursor_position,
+                                    };
+                                    shell.publish(on_drag(DragEvent::Picked {
+                                        index,
+                                    }));
+                                    event_status = event::Status::Captured;
+                                }
+                            }
+                        }
+                        Action::Dragging { origin, index, .. } => {
+                            if let Some(cursor_position) = cursor.position() {
+                                *action = Action::Dragging {
+                                    last_cursor: cursor_position,
+                                    origin,
+                                    index,
+                                };
+                                event_status = event::Status::Captured;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                Event::Mouse(mouse::Event::ButtonReleased(
+                    mouse::Button::Left,
+                )) => {
+                    match *action {
+                        Action::Dragging { index, .. } => {
+                            if let Some(cursor_position) = cursor.position() {
+                                let bounds = layout.bounds();
+                                if bounds.contains(cursor_position) {
+                                    let (target_index, drop_position) = self
+                                        .compute_target_index(
+                                            cursor_position,
+                                            layout,
+                                            index,
+                                        );
 
-                                if let Some(on_reorder) = &self.on_drag {
-                                    shell.publish(on_reorder(
+                                    shell.publish(on_drag(
                                         DragEvent::Dropped {
                                             index,
                                             target_index,
@@ -524,24 +527,24 @@ where
                                         },
                                     ));
                                     event_status = event::Status::Captured;
+                                } else {
+                                    shell.publish(on_drag(
+                                        DragEvent::Canceled { index },
+                                    ));
+                                    event_status = event::Status::Captured;
                                 }
-                            } else if let Some(on_reorder) = &self.on_drag {
-                                shell.publish(on_reorder(
-                                    DragEvent::Canceled { index },
-                                ));
-                                event_status = event::Status::Captured;
                             }
+                            *action = Action::Idle;
                         }
-                        *action = Action::Idle;
+                        Action::Picking { .. } => {
+                            // Did not move enough to start dragging
+                            *action = Action::Idle;
+                        }
+                        _ => {}
                     }
-                    Action::Picking { .. } => {
-                        // Did not move enough to start dragging
-                        *action = Action::Idle;
-                    }
-                    _ => {}
                 }
+                _ => {}
             }
-            _ => {}
         }
 
         let child_status = self
@@ -583,7 +586,8 @@ where
         self.children
             .iter()
             .zip(&tree.children)
-            .map(|(child, state)| {
+            .zip(layout.children())
+            .map(|((child, state), layout)| {
                 child.mouse_interaction(
                     state, layout, cursor, viewport, renderer,
                 )

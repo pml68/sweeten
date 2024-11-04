@@ -127,9 +127,9 @@ impl App {
 
         let flex_items = self.elements.iter().enumerate().map(|(i, label)| {
             if i == 0 {
-                pickme(label).can_stretch(false)
+                pickme(label).grow(2.0)
             } else {
-                pickme(label)
+                pickme(label).grow(1.0)
             }
         });
 
@@ -161,6 +161,7 @@ impl App {
             Mode::Row => Row::with_flex_children(flex_items)
                 .spacing(5)
                 .height(Fill)
+                .width(Fill)
                 .justify(self.justify)
                 .align(self.align)
                 .on_drag(Message::Reorder)
@@ -316,8 +317,8 @@ impl std::fmt::Display for Mode {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 enum Mode {
-    Row,
     #[default]
+    Row,
     Column,
 }
 
