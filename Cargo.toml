@@ -16,4 +16,5 @@ iced.features = ["advanced"]
 
 [dev-dependencies]
 iced.version = "0.13"
-iced.features = ["advanced", "debug", "image"]
+iced.features = ["advanced", "debug", "image", "canvas"]
+rand = "0.8.5"
