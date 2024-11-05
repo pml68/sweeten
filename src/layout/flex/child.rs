@@ -9,26 +9,42 @@ use iced::{
     Rectangle, Size, Theme, Vector,
 };
 
-/// Properties controlling how a child behaves in a flex container
+use crate::layout::flex::Axis;
+
 #[derive(Debug, Clone, Copy)]
-pub struct FlexProperties {
-    /// How much the item will grow relative to others
-    pub grow: f32,
-    /// How much the item will shrink relative to others
-    pub shrink: f32,
-    /// The hypothetical main axis size
-    pub basis: Option<f32>,
-    /// Whether the item can be stretched on cross axis
-    pub can_stretch: bool,
+pub struct AxisProperties {
+    pub(crate) grow: f32,
+    pub(crate) shrink: f32,
+    pub(crate) basis: Option<f32>,
 }
 
-impl Default for FlexProperties {
+impl Default for AxisProperties {
     fn default() -> Self {
         Self {
             grow: 0.0,
             shrink: 1.0,
             basis: None,
-            can_stretch: false,
+        }
+    }
+}
+
+pub struct FlexProperties {
+    horizontal: AxisProperties,
+    vertical: AxisProperties,
+}
+
+impl FlexProperties {
+    pub(crate) fn main(&self, axis: Axis) -> &AxisProperties {
+        match axis {
+            Axis::Horizontal => &self.horizontal,
+            Axis::Vertical => &self.vertical,
+        }
+    }
+
+    pub(crate) fn cross(&self, axis: Axis) -> &AxisProperties {
+        match axis {
+            Axis::Horizontal => &self.vertical,
+            Axis::Vertical => &self.horizontal,
         }
     }
 }
@@ -53,67 +69,94 @@ where
         content: impl Into<Element<'a, Message, Theme, Renderer>>,
     ) -> Self {
         let content = content.into();
-        let widget_size = content.as_widget().size();
+        let size = content.as_widget().size();
 
-        let (width, height) = (widget_size.width, widget_size.height);
-
-        // Check both dimensions for fill behavior
-        let is_fill = width.is_fill() || height.is_fill();
-        let is_fixed = matches!(
-            (width, height),
-            (Length::Fixed(_), _) | (_, Length::Fixed(_))
-        );
-
-        // Get fluid variants to check shrink behavior
-        let width_fluid = width.fluid();
-        let height_fluid = height.fluid();
-        let can_shrink = matches!(
-            (width_fluid, height_fluid),
-            (Length::Shrink, _) | (_, Length::Shrink)
-        );
-
-        let properties = FlexProperties {
-            grow: if is_fill { 1.0 } else { 0.0 },
-            // Only allow shrinking if not fixed and can shrink
-            shrink: if is_fixed {
-                0.0
-            } else if can_shrink {
-                1.0
-            } else {
-                0.0
+        // Initialize properties for each axis based on size hints
+        let horizontal = AxisProperties {
+            grow: if size.width.is_fill() { 1.0 } else { 0.0 },
+            shrink: match size.width {
+                Length::Fixed(_) => 0.0,
+                Length::Shrink => 1.0,
+                _ => {
+                    if size.width.fluid() == Length::Shrink {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
             },
             basis: None,
-            can_stretch: is_fill,
+        };
+
+        let vertical = AxisProperties {
+            grow: if size.height.is_fill() { 1.0 } else { 0.0 },
+            shrink: match size.height {
+                Length::Fixed(_) => 0.0,
+                Length::Shrink => 1.0,
+                _ => {
+                    if size.height.fluid() == Length::Shrink {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+            },
+            basis: None,
         };
 
         Self {
             content,
-            properties,
+            properties: FlexProperties {
+                horizontal,
+                vertical,
+            },
         }
     }
 
-    /// Sets how much this item will grow relative to other flex items
-    pub fn grow(mut self, grow: f32) -> Self {
-        self.properties.grow = grow;
+    /// Sets how much this item will grow horizontally
+    pub fn grow_width(mut self, grow: f32) -> Self {
+        self.properties.horizontal.grow = grow;
         self
     }
 
-    /// Sets how much this item will shrink relative to other flex items
-    pub fn shrink(mut self, shrink: f32) -> Self {
-        self.properties.shrink = shrink;
+    /// Sets how much this item will grow vertically
+    pub fn grow_height(mut self, grow: f32) -> Self {
+        self.properties.vertical.grow = grow;
         self
     }
 
-    /// Sets the basis (hypothetical main axis size) for this item
-    pub fn basis(mut self, basis: f32) -> Self {
-        self.properties.basis = Some(basis);
+    /// Sets how much this item will shrink horizontally
+    pub fn shrink_width(mut self, shrink: f32) -> Self {
+        self.properties.horizontal.shrink = shrink;
         self
     }
 
-    /// Sets whether this item can stretch on the cross axis
-    pub fn can_stretch(mut self, can_stretch: bool) -> Self {
-        self.properties.can_stretch = can_stretch;
+    /// Sets how much this item will shrink vertically
+    pub fn shrink_height(mut self, shrink: f32) -> Self {
+        self.properties.vertical.shrink = shrink;
         self
+    }
+
+    /// Sets the basis for horizontal axis
+    pub fn width_basis(mut self, basis: f32) -> Self {
+        self.properties.horizontal.basis = Some(basis);
+        self
+    }
+
+    /// Sets the basis for vertical axis
+    pub fn height_basis(mut self, basis: f32) -> Self {
+        self.properties.vertical.basis = Some(basis);
+        self
+    }
+
+    /// Sets grow factor for both axes
+    pub fn grow(self, grow: f32) -> Self {
+        self.grow_width(grow).grow_height(grow)
+    }
+
+    /// Sets shrink factor for both axes
+    pub fn shrink(self, shrink: f32) -> Self {
+        self.shrink_width(shrink).shrink_height(shrink)
     }
 
     /// Gets the flex properties
@@ -126,19 +169,20 @@ where
         &self.content
     }
 
-    /// Gets the width of the child in `Length`
-    pub(super) fn width(&self) -> Length {
-        // If we have a basis, use that as a fixed width
-        if let Some(basis) = self.properties.basis {
-            Length::Fixed(basis)
-        } else {
-            self.content.as_widget().size().width
-        }
-    }
+    /// Gets the size hints for this child
+    pub(super) fn size_hints(&self) -> Size<Length> {
+        let content_size = self.content.as_widget().size();
 
-    /// Gets the height of the child in `Length`
-    pub(super) fn height(&self) -> Length {
-        self.content.as_widget().size().height
+        Size {
+            width: match self.properties.horizontal.basis {
+                Some(basis) => Length::Fixed(basis),
+                None => content_size.width,
+            },
+            height: match self.properties.vertical.basis {
+                Some(basis) => Length::Fixed(basis),
+                None => content_size.height,
+            },
+        }
     }
 }
 
@@ -157,17 +201,43 @@ where
         tree.children[0].diff(&self.content);
     }
 
-    /// Delegate layout to the inner content, letting the container of this
-    /// [`FlexChild`] handle applying proper limits based on our properties
     pub(crate) fn layout(
         &self,
         tree: &mut Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        self.content
-            .as_widget()
-            .layout(&mut tree.children[0], renderer, limits)
+        let size_hints = self.content.as_widget().size();
+
+        // First get natural size with loose limits
+        let natural_node = self.content.as_widget().layout(
+            &mut tree.children[0],
+            renderer,
+            &limits.loose(),
+        );
+
+        // Create constrained limits based on natural size and size hints
+        let min_width = match size_hints.width {
+            Length::Shrink => natural_node.size().width,
+            Length::Fixed(px) => px,
+            _ => 0.0,
+        };
+
+        let min_height = match size_hints.height {
+            Length::Shrink => natural_node.size().height,
+            Length::Fixed(px) => px,
+            _ => 0.0,
+        };
+
+        // Final layout with size constraints
+        let constrained_limits =
+            limits.min_width(min_width).min_height(min_height);
+
+        self.content.as_widget().layout(
+            &mut tree.children[0],
+            renderer,
+            &constrained_limits,
+        )
     }
 
     /// Delegate drawing to the inner content

@@ -17,7 +17,7 @@ where
 }
 
 /// The main axis of a flex layout.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Axis {
     /// The horizontal axis
     Horizontal,
@@ -173,6 +173,11 @@ fn compute_spacing(
     }
 }
 
+/// Computes the flexbox layout with the given axis and limits, applying spacing,
+/// main axis justification and cross axis alignment based on the container's
+/// dimensions and properties as well as the children's sizes and properties.
+///
+/// It returns a new layout [`Node`].
 pub fn resolve<Message, Theme, Renderer>(
     axis: Axis,
     renderer: &Renderer,
@@ -205,39 +210,54 @@ where
     let mut total_basis = 0.0;
     let mut total_grow = 0.0;
     let mut total_shrink = 0.0;
+    let mut total_fill_grow = 0.0; // Track grow factors specifically for Fill items
     let mut nodes = Vec::with_capacity(items.len());
     let mut natural_cross_max: f32 = 0.0;
 
     // First layout pass - get natural sizes and flex info
     for (child, tree) in items.iter().zip(trees.iter_mut()) {
-        let properties = child.properties();
-        let content = child.content().as_widget();
-        let content_size = content.size();
+        let main_props = child.properties().main(axis);
+        let content_size = child.content().as_widget().size();
 
-        // Calculate natural size with shrunk limits
-        let child_limits = limits.clone();
-        let node =
-            content.layout(&mut tree.children[0], renderer, &child_limits);
-        let natural_size = node.size();
-
-        // Use specified basis or natural size
-        let basis = properties.basis.unwrap_or_else(|| axis.main(natural_size));
-
-        total_basis += basis;
-        total_grow += properties.grow;
-        total_shrink += properties.shrink;
-        natural_cross_max = natural_cross_max.max(axis.cross(natural_size));
-
-        // Determine if element should stretch based on its Length properties
-        let should_stretch = match axis {
-            Axis::Horizontal => content_size.height.is_fill(),
-            Axis::Vertical => content_size.width.is_fill(),
+        // Check if this item has Fill in main axis
+        let is_fill = match axis {
+            Axis::Horizontal => content_size.width.is_fill(),
+            Axis::Vertical => content_size.height.is_fill(),
         };
 
-        nodes.push((node, properties, should_stretch));
+        // Get initial natural size with loose limits
+        let child_limits = limits.loose();
+        let node = child.content().as_widget().layout(
+            &mut tree.children[0],
+            renderer,
+            &child_limits,
+        );
+        let natural_size = node.size();
+
+        // For Fill items, don't add their full natural size to total_basis
+        // Instead, track their grow factors separately
+        if is_fill {
+            total_fill_grow += main_props.grow;
+        } else {
+            let basis =
+                main_props.basis.unwrap_or_else(|| axis.main(natural_size));
+            total_basis += basis;
+        }
+
+        total_grow += main_props.grow;
+        total_shrink += main_props.shrink;
+        natural_cross_max = natural_cross_max.max(axis.cross(natural_size));
+
+        nodes.push((node, natural_size, is_fill));
     }
 
-    // Calculate cross size based on container properties and content
+    // Determine container dimensions
+    let should_fill_main = match axis {
+        Axis::Horizontal => width.is_fill(),
+        Axis::Vertical => height.is_fill(),
+    };
+
+    let container_main = axis.main(limits.max());
     let container_cross = match axis {
         Axis::Horizontal => match height {
             Length::Fill | Length::FillPortion(_) => axis.cross(limits.max()),
@@ -249,122 +269,147 @@ where
         },
     };
 
-    // Calculate available space for grow/shrink
-    let container_main = axis.main(limits.max());
-    let available_space = container_main - total_spacing - total_basis;
-    let is_growing = available_space > 0.0;
+    // Calculate space available for growth, excluding Fill items from initial content_size
+    let content_size = total_basis + total_spacing;
+    let fill_space = if total_fill_grow > 0.0 {
+        (container_main - content_size).max(0.0)
+    } else {
+        0.0
+    };
+
+    let remaining_space = container_main - content_size - fill_space;
+    let is_growing = remaining_space > 0.0 && total_grow > 0.0;
 
     // Second pass: Apply flex properties and layout with final sizes
     let mut final_nodes = Vec::with_capacity(items.len());
 
-    for ((child, tree), (mut node, properties, should_stretch)) in
-        items.iter().zip(trees).zip(nodes)
+    for ((child, tree), (_, natural_size, is_fill)) in
+        items.iter().zip(trees).zip(nodes.clone())
     {
-        let content = child.content().as_widget();
-        let content_size = content.size();
-        let mut main_size = axis.main(node.size());
+        let main_props = child.properties().main(axis);
+        let mut main_size = axis.main(natural_size);
 
-        // Apply growth/shrink
-        if is_growing {
-            if properties.grow > 0.0 && total_grow > 0.0 {
-                main_size += available_space * (properties.grow / total_grow);
+        if is_fill {
+            // Distribute fill_space among Fill items according to their grow factors
+            main_size =
+                (fill_space * main_props.grow / total_fill_grow).max(0.0);
+        } else if is_growing {
+            // Regular growing for non-Fill items
+            let grow_unit = remaining_space / total_grow;
+            main_size += main_props.grow * grow_unit;
+        } else if main_props.shrink > 0.0
+            && total_shrink > 0.0
+            && remaining_space < 0.0
+        {
+            // Shrinking with weighted factors
+            let shrink_weight = main_props.shrink * main_size;
+            let total_weighted_shrink = items
+                .iter()
+                .zip(&nodes)
+                .map(|(child, (_, size, _))| {
+                    child.properties().main(axis).shrink * axis.main(*size)
+                })
+                .sum::<f32>();
+
+            if total_weighted_shrink > 0.0 {
+                let deficit = -remaining_space;
+                let shrink_ratio = shrink_weight / total_weighted_shrink;
+                main_size = (main_size - deficit * shrink_ratio).max(0.0);
             }
-        } else if properties.shrink > 0.0 && total_shrink > 0.0 {
-            let shrink_ratio = properties.shrink / total_shrink;
-            // Don't shrink below minimum size for fixed-size elements
-            let min_main = match axis {
-                Axis::Horizontal
-                    if matches!(content_size.width, Length::Fixed(_)) =>
-                {
-                    main_size
-                }
-                Axis::Vertical
-                    if matches!(content_size.height, Length::Fixed(_)) =>
-                {
-                    main_size
-                }
-                _ => 0.0,
-            };
-            let shrink_space =
-                (-available_space * shrink_ratio).min(main_size - min_main);
-            main_size -= shrink_space;
         }
 
-        // Determine cross-axis sizing
-        let should_stretch =
-            should_stretch || align_items == FlexAlignment::Stretch;
+        // Handle cross-axis sizing and stretching
+        let should_stretch = match axis {
+            Axis::Horizontal => {
+                child.content().as_widget().size().height.is_fill()
+                    || align_items == FlexAlignment::Stretch
+            }
+            Axis::Vertical => {
+                child.content().as_widget().size().width.is_fill()
+                    || align_items == FlexAlignment::Stretch
+            }
+        };
+
         let cross_size = match align_items {
             FlexAlignment::Stretch if should_stretch => container_cross,
             FlexAlignment::Fit
             | FlexAlignment::CenterFit
             | FlexAlignment::EndFit => natural_cross_max,
-            _ => axis.cross(node.size()),
+            _ => axis.cross(natural_size),
         };
 
         // Create limits for final layout
         let (width, height) = axis.pack(main_size, cross_size);
         let child_limits = match align_items {
             FlexAlignment::Stretch if should_stretch => {
-                // Force cross size for stretching items
-                let min_size = axis.pack(0.0, cross_size);
+                let (min_width, min_height) =
+                    axis.pack(main_size, container_cross);
+                let (max_width, max_height) =
+                    axis.pack(main_size, container_cross);
                 Limits::new(
-                    Size::new(min_size.0, min_size.1),
-                    Size::new(width, height),
+                    Size::new(min_width, min_height),
+                    Size::new(max_width, max_height),
                 )
-                .width(content_size.width)
-                .height(content_size.height)
             }
             FlexAlignment::Fit
             | FlexAlignment::CenterFit
             | FlexAlignment::EndFit => {
-                // Force same cross size for fitting items
-                let min_size = axis.pack(0.0, cross_size);
+                let min_size = axis.pack(main_size, cross_size);
                 Limits::new(
                     Size::new(min_size.0, min_size.1),
                     Size::new(width, height),
                 )
             }
-            _ => Limits::new(Size::ZERO, Size::new(width, height)),
+            _ => {
+                let min_main = axis.pack(main_size, 0.0);
+                Limits::new(
+                    Size::new(min_main.0, min_main.1),
+                    Size::new(width, height),
+                )
+            }
         };
 
-        node = content.layout(&mut tree.children[0], renderer, &child_limits);
+        let node = child.content().as_widget().layout(
+            &mut tree.children[0],
+            renderer,
+            &child_limits,
+        );
+
         final_nodes.push(node);
     }
 
-    // Calculate content size
+    // Calculate final container dimensions
     let total_main = final_nodes
         .iter()
         .fold(0.0, |acc, node| acc + axis.main(node.size()))
         + total_spacing;
 
-    // Determine if we need full width for spacing
-    let needs_full_main = matches!(
-        justify_content,
-        JustifyContent::SpaceBetween
-            | JustifyContent::SpaceAround
-            | JustifyContent::SpaceEvenly
-    );
-
-    // Calculate final container size using original limits
-    let final_main = if needs_full_main {
-        axis.main(original_limits.max())
+    let final_main = if should_fill_main
+        || matches!(
+            justify_content,
+            JustifyContent::SpaceBetween
+                | JustifyContent::SpaceAround
+                | JustifyContent::SpaceEvenly
+        ) {
+        container_main
     } else {
-        total_main
+        total_main.min(container_main)
     };
-    let final_cross = container_cross;
 
-    // Calculate spacing for items
-    let available_space = if needs_full_main {
-        final_main - total_main
+    // Calculate justify spacing
+    let justify_space = if should_fill_main
+        || !matches!(justify_content, JustifyContent::Start)
+    {
+        (final_main - total_main).max(0.0)
     } else {
         0.0
     };
 
-    let (item_initial_offset, item_spacing) =
-        compute_spacing(justify_content, available_space, final_nodes.len());
+    let (initial_offset, item_spacing) =
+        compute_spacing(justify_content, justify_space, final_nodes.len());
 
-    // Position nodes within container bounds
-    let mut main = padding.left + item_initial_offset;
+    // Position nodes
+    let mut main = padding.left + initial_offset;
     for (i, node) in final_nodes.iter_mut().enumerate() {
         if i > 0 {
             main += spacing + item_spacing;
@@ -385,8 +430,8 @@ where
         main += axis.main(node.size());
     }
 
-    // Calculate final size including padding
-    let container_size = axis.pack(final_main, final_cross);
+    // Create final container with padding
+    let container_size = axis.pack(final_main, container_cross);
     let size = original_limits.resolve(
         width,
         height,

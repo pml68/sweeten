@@ -1,12 +1,13 @@
 use iced::widget::{
-    column as iced_column, container, pick_list, row as iced_row, text,
+    column as iced_column, container, pick_list, row as iced_row, text, toggler,
 };
 use iced::Length::Fill;
 use iced::{Center, Element, Task, Theme};
 
 use sweeten::layout::flex::{FlexAlignment, FlexChild, JustifyContent};
+use sweeten::row;
 use sweeten::widget::draggable::{DragEvent, DropPosition};
-use sweeten::widget::{row, Column, Row};
+use sweeten::widget::{Column, Row};
 
 pub fn main() -> iced::Result {
     iced::application(
@@ -17,19 +18,33 @@ pub fn main() -> iced::Result {
     .window(iced::window::Settings {
         size: (1000.0, 600.0).into(),
         min_size: Some((800.0, 550.0).into()),
+        level: iced::window::Level::AlwaysOnTop,
         ..Default::default()
     })
     .theme(App::theme)
     .run_with(App::new)
 }
 
-#[derive(Default)]
 struct App {
     elements: Vec<String>,
     mode: Mode,
     explain: bool,
     justify: Justify,
     align: Align,
+    grow: bool,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self {
+            elements: vec![],
+            mode: Mode::Row,
+            explain: false,
+            justify: Justify::Start,
+            align: Align::Start,
+            grow: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +54,7 @@ enum Message {
     Justify(Justify),
     Align(Align),
     Explain(bool),
+    Grow(bool),
 }
 
 impl App {
@@ -59,7 +75,6 @@ impl App {
     }
 
     fn update(&mut self, message: Message) {
-        eprintln!("");
         match message {
             Message::Mode(mode) => {
                 self.mode = mode;
@@ -72,6 +87,9 @@ impl App {
             }
             Message::Explain(b) => {
                 self.explain = b;
+            }
+            Message::Grow(b) => {
+                self.grow = b;
             }
             Message::Reorder(event) => {
                 match event {
@@ -125,11 +143,15 @@ impl App {
             })
             .collect();
 
+        let flex_grow = match self.grow {
+            true => 1.0,
+            false => 0.0,
+        };
         let flex_items = self.elements.iter().enumerate().map(|(i, label)| {
             if i == 0 {
-                pickme(label).grow(2.0)
+                pickme(label).grow(flex_grow * 2.0)
             } else {
-                pickme(label).grow(1.0)
+                pickme(label).grow(flex_grow)
             }
         });
 
@@ -153,15 +175,26 @@ impl App {
         let flex_layout: Element<'_, Message> = match self.mode {
             Mode::Column => Column::with_flex_children(flex_items)
                 .spacing(5)
+                // Commenting out these next two lines requires the vanilla
+                // container around the flex container to set .align_x and
+                // .align_y for the main/cross axes depending on self.mode,
+                // otherwise the flex container will always be the exact size
+                // of its children, and you won't see the alignment effects
                 .width(Fill)
+                .height(Fill)
                 .justify(self.justify)
                 .align(self.align)
                 .on_drag(Message::Reorder)
                 .into(),
             Mode::Row => Row::with_flex_children(flex_items)
                 .spacing(5)
-                .height(Fill)
+                // Commenting out these next two lines requires the vanilla
+                // container around the flex container to set .align_x and
+                // .align_y for the main/cross axes depending on self.mode,
+                // otherwise the flex container will always be the exact size
+                // of its children, and you won't see the alignment effects
                 .width(Fill)
+                .height(Fill)
                 .justify(self.justify)
                 .align(self.align)
                 .on_drag(Message::Reorder)
@@ -191,6 +224,8 @@ impl App {
         ]
         .align_y(Center);
 
+        let grow = toggler(self.grow).label("Grow").on_toggle(Message::Grow);
+
         let explain = iced::widget::checkbox("Explain", self.explain)
             .on_toggle(Message::Explain);
 
@@ -218,6 +253,18 @@ impl App {
             }
         };
 
+        // If you'd like the flex containers to not have lengths=Fill, you can
+        // uncomment these lines and align items within the vanilla `iced`
+        // container instead.
+        // let flex_x = match self.mode {
+        //     Mode::Column => align_x, // cross axis
+        //     Mode::Row => justify_x,  // main axis
+        // };
+        // let flex_y = match self.mode {
+        //     Mode::Column => justify_y, // main axis
+        //     Mode::Row => align_y,      // cross axis
+        // };
+
         // Create the side-by-side containers
         let iced_container = iced_column![
             container(iced_layout)
@@ -242,8 +289,10 @@ impl App {
 
         let flex_container = iced_column![
             container(flex_layout)
-                .align_x(justify_x)
-                .align_y(justify_y)
+                // Uncomment these lines if you made the flex containers
+                // not have lengths=Fill above
+                // .align_x(flex_x)
+                // .align_y(flex_y)
                 .width(Fill)
                 .height(Fill)
                 .padding(20)
@@ -262,12 +311,25 @@ impl App {
             justify_pick_list.into(),
             align_pick_list.into(),
             mode_pick_list.into(),
+            grow.into(),
             explain.into(),
         ];
 
+        let controls_row: Element<'_, Message> = row(controls)
+            .spacing(10)
+            .align(FlexAlignment::Center)
+            .justify(JustifyContent::SpaceBetween)
+            .into();
+
+        let controls_row = if self.explain {
+            controls_row.explain(iced::color!(0, 192, 192))
+        } else {
+            controls_row
+        };
+
         container(
             iced_column![
-                row(controls).spacing(20),
+                controls_row,
                 iced_row![
                     iced_column![
                         text("Standard Iced Layout").size(20),
@@ -296,7 +358,9 @@ impl App {
 
 fn pickme(label: &str) -> FlexChild<'_, Message, Theme> {
     FlexChild::new(
-        container(text(label).center())
+        container(text(label))
+            .align_x(Center)
+            .align_y(Center)
             .style(container::rounded_box)
             .padding(5),
     )
