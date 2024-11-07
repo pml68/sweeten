@@ -210,7 +210,8 @@ where
     let mut total_basis = 0.0;
     let mut total_grow = 0.0;
     let mut total_shrink = 0.0;
-    let mut total_fill_grow = 0.0; // Track grow factors specifically for Fill items
+    let mut total_fill_grow = 0.0;
+    let mut fill_items_count = 0;
     let mut nodes = Vec::with_capacity(items.len());
     let mut natural_cross_max: f32 = 0.0;
 
@@ -238,6 +239,7 @@ where
         // Instead, track their grow factors separately
         if is_fill {
             total_fill_grow += main_props.grow;
+            fill_items_count += 1;
         } else {
             let basis =
                 main_props.basis.unwrap_or_else(|| axis.main(natural_size));
@@ -271,7 +273,7 @@ where
 
     // Calculate space available for growth, excluding Fill items from initial content_size
     let content_size = total_basis + total_spacing;
-    let fill_space = if total_fill_grow > 0.0 {
+    let fill_space = if fill_items_count > 0 {
         (container_main - content_size).max(0.0)
     } else {
         0.0
@@ -291,8 +293,12 @@ where
 
         if is_fill {
             // Distribute fill_space among Fill items according to their grow factors
-            main_size =
-                (fill_space * main_props.grow / total_fill_grow).max(0.0);
+            main_size = if main_props.grow > 0.0 {
+                (fill_space * main_props.grow / total_fill_grow).max(0.0)
+            } else {
+                // Use our pre-counted fill_items_count
+                fill_space / fill_items_count as f32
+            };
         } else if is_growing {
             // Regular growing for non-Fill items
             let grow_unit = remaining_space / total_grow;
