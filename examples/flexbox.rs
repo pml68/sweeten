@@ -1,13 +1,14 @@
 use iced::widget::{
-    column as iced_column, container, pick_list, row as iced_row, text, toggler,
+    column as iced_column, container, horizontal_rule, pick_list,
+    row as iced_row, text, toggler, vertical_rule,
 };
-use iced::Length::Fill;
+use iced::Length::{Fill, Shrink};
 use iced::{Center, Element, Task, Theme};
 
-use sweeten::layout::flex::{FlexAlignment, FlexChild, JustifyContent};
-use sweeten::row;
+use sweeten::layout::flex::{FlexAlignment, JustifyContent};
 use sweeten::widget::draggable::{DragEvent, DropPosition};
 use sweeten::widget::{Column, Row};
+use sweeten::{flex, row};
 
 pub fn main() -> iced::Result {
     iced::application(
@@ -26,7 +27,7 @@ pub fn main() -> iced::Result {
 }
 
 struct App {
-    elements: Vec<String>,
+    elements: Vec<Fruit>,
     mode: Mode,
     explain: bool,
     justify: Justify,
@@ -61,13 +62,7 @@ impl App {
     fn new() -> (Self, Task<Message>) {
         (
             Self {
-                elements: vec![
-                    "Some rather\nlarge\nApple text".to_string(),
-                    "Banana".to_string(),
-                    "Cherry".to_string(),
-                    "Date".to_string(),
-                    "Elderberry".to_string(),
-                ],
+                elements: Fruit::ALL.to_vec(),
                 ..Default::default()
             },
             Task::none(),
@@ -132,16 +127,8 @@ impl App {
     }
 
     fn view(&self) -> Element<Message> {
-        let iced_items: Vec<Element<_>> = self
-            .elements
-            .iter()
-            .map(|label| {
-                container(text(label).center())
-                    .style(container::rounded_box)
-                    .padding(5)
-                    .into()
-            })
-            .collect();
+        let iced_items: Vec<Element<_>> =
+            self.elements.iter().map(|label| label.element()).collect();
 
         let flex_grow = match self.grow {
             true => 1.0,
@@ -149,9 +136,9 @@ impl App {
         };
         let flex_items = self.elements.iter().enumerate().map(|(i, label)| {
             if i == 0 {
-                pickme(label).grow(flex_grow * 2.0)
+                flex(label.element()).grow(flex_grow * 2.0)
             } else {
-                pickme(label).grow(flex_grow)
+                flex(label.element()).grow(flex_grow)
             }
         });
 
@@ -356,14 +343,71 @@ impl App {
     }
 }
 
-fn pickme(label: &str) -> FlexChild<'_, Message, Theme> {
-    FlexChild::new(
-        container(text(label))
+#[derive(Clone, Copy, Debug)]
+enum Fruit {
+    Apple,
+    Banana,
+    Cherry,
+    Date,
+    Elderberry,
+}
+
+impl Fruit {
+    const ALL: [Fruit; 5] = [
+        Fruit::Apple,
+        Fruit::Banana,
+        Fruit::Cherry,
+        Fruit::Date,
+        Fruit::Elderberry,
+    ];
+
+    fn wrapped<'a>(
+        &self,
+        el: impl Into<Element<'a, Message>>,
+    ) -> Element<'a, Message> {
+        container(el.into())
             .align_x(Center)
             .align_y(Center)
+            .padding(5)
             .style(container::rounded_box)
-            .padding(5),
-    )
+            .into()
+    }
+
+    fn element(&self) -> Element<'_, Message> {
+        match self {
+            Fruit::Apple => self.wrapped(
+                text("Some rather\nlong 🍏\ntext")
+                    .shaping(text::Shaping::Advanced),
+            ),
+            Fruit::Banana => self.wrapped(
+                iced_column![
+                    horizontal_rule(1),
+                    text("Horizontal fill 🍌").shaping(text::Shaping::Advanced),
+                    horizontal_rule(1),
+                ]
+                .width(Shrink)
+                .spacing(5)
+                .align_x(Center),
+            ),
+            Fruit::Cherry => {
+                self.wrapped(text("🍒").shaping(text::Shaping::Advanced))
+            }
+            Fruit::Date => {
+                self.wrapped(text("🪀").shaping(text::Shaping::Advanced))
+            }
+            Fruit::Elderberry => self.wrapped(
+                iced_row![
+                    vertical_rule(1),
+                    text("Vertical fill 🫐").shaping(text::Shaping::Advanced),
+                    vertical_rule(1),
+                    vertical_rule(1),
+                ]
+                .height(Shrink)
+                .spacing(5)
+                .align_y(Center),
+            ),
+        }
+    }
 }
 
 fn label(label: &str, value: impl std::fmt::Display) -> Element<'_, Message> {

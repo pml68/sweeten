@@ -11,8 +11,9 @@ use iced::{
     Shrink, Subscription, Theme,
 };
 
+use sweeten::layout::FlexAlignment;
 use sweeten::layout::JustifyContent;
-use sweeten::{column, row};
+use sweeten::{column, flex, row, Column, Row};
 
 pub fn main() -> iced::Result {
     iced::application(Layout::title, Layout::update, Layout::view)
@@ -196,7 +197,7 @@ impl Example {
 
 impl Default for Example {
     fn default() -> Self {
-        Self::LIST[0]
+        Self::LIST[5]
     }
 }
 
@@ -263,15 +264,20 @@ fn application<'a>() -> Element<'a, Message> {
 
     let content = container(
         scrollable(
-            column![
+            iced_column![
                 "Content!",
-                row((1..10).map(|i| square(if i % 2 == 0 { 80 } else { 160 })))
-                    .spacing(20)
-                    .align(Center),
+                iced_row((1..10).map(|i| square(if i % 2 == 0 {
+                    80
+                } else {
+                    160
+                })))
+                .spacing(20)
+                .wrap(),
+                // .align(Center),
                 "The end"
             ]
             .spacing(40)
-            .align(Center)
+            // .align(Center)
             .width(Fill),
         )
         .height(Fill),
@@ -312,6 +318,37 @@ fn quotes<'a>() -> Element<'a, Message> {
     .spacing(10)
     .into()
 }
+// fn quotes<'a>() -> Element<'a, Message> {
+//     fn quote<'a>(
+//         content: impl Into<Element<'a, Message>>,
+//     ) -> Element<'a, Message> {
+//         iced_row![vertical_rule(2), content.into()]
+//             .spacing(10)
+//             .height(Shrink)
+//             .into()
+//     }
+
+//     fn reply<'a>(
+//         original: impl Into<Element<'a, Message>>,
+//         reply: impl Into<Element<'a, Message>>,
+//     ) -> Element<'a, Message> {
+//         iced_column![quote(original), reply.into()]
+//             .spacing(10)
+//             .into()
+//     }
+
+//     iced_column![
+//         reply(
+//             reply("This is the original message", "This is a reply"),
+//             "This is another reply",
+//         ),
+//         horizontal_rule(1),
+//         "A separator ↑",
+//     ]
+//     .width(Shrink)
+//     .spacing(10)
+//     .into()
+// }
 
 fn square<'a>(size: impl Into<Length> + Copy) -> Element<'a, Message> {
     struct Square;

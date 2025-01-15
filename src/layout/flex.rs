@@ -216,6 +216,7 @@ where
     let mut natural_cross_max: f32 = 0.0;
 
     // First layout pass - get natural sizes and flex info
+    eprintln!("\nFirst pass:");
     for (child, tree) in items.iter().zip(trees.iter_mut()) {
         let main_props = child.properties().main(axis);
         let content_size = child.content().as_widget().size();
@@ -250,6 +251,7 @@ where
         total_shrink += main_props.shrink;
         natural_cross_max = natural_cross_max.max(axis.cross(natural_size));
 
+        eprintln!("Pushing node with natural_size={natural_size:?}, is_fill={is_fill}\n  (Node children: {:?})", node.children());
         nodes.push((node, natural_size, is_fill));
     }
 
@@ -285,6 +287,7 @@ where
     // Second pass: Apply flex properties and layout with final sizes
     let mut final_nodes = Vec::with_capacity(items.len());
 
+    eprintln!("\nSecond pass:");
     for ((child, tree), (_, natural_size, is_fill)) in
         items.iter().zip(trees).zip(nodes.clone())
     {
@@ -293,6 +296,8 @@ where
 
         if is_fill {
             // Distribute fill_space among Fill items according to their grow factors
+            // main_size =
+            //     (fill_space * main_props.grow / total_fill_grow).max(0.0);
             main_size = if main_props.grow > 0.0 {
                 (fill_space * main_props.grow / total_fill_grow).max(0.0)
             } else {
@@ -381,6 +386,11 @@ where
             &child_limits,
         );
 
+        eprintln!(
+            "Pushing node with size={:?}, main_size was={main_size:?}\n  (Node children: {:?})",
+            node.size(),
+            node.children()
+        );
         final_nodes.push(node);
     }
 
