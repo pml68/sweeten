@@ -28,7 +28,7 @@ use iced::advanced::{layout, mouse, overlay, renderer, Clipboard, Layout};
 use iced::advanced::{Shell, Widget};
 use iced::alignment;
 use iced::border::{self, Border};
-use iced::event::{self, Event};
+use iced::event::Event;
 use iced::touch;
 use iced::widget::scrollable::{self, Scrollable};
 use iced::{
@@ -325,7 +325,7 @@ where
         })
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         event: Event,
         layout: Layout<'_>,
@@ -333,10 +333,10 @@ where
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
-    ) -> event::Status {
+    ) {
         let bounds = layout.bounds();
 
-        self.list.on_event(
+        self.list.update(
             self.state, event, layout, cursor, renderer, clipboard, shell,
             &bounds,
         )
@@ -438,7 +438,7 @@ where
         layout::Node::new(size)
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         _state: &mut Tree,
         event: Event,
@@ -448,7 +448,7 @@ where
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 if let Some(cursor_position) =
@@ -466,7 +466,7 @@ where
                                 ));
                             }
                         }
-                        return event::Status::Captured;
+                        shell.capture_event();
                     }
                 }
             }
@@ -495,7 +495,7 @@ where
                             }
                             *self.hovered_option = Some(new_hovered_option);
                         }
-                        return event::Status::Captured;
+                        shell.capture_event();
                     }
                 }
             }
@@ -516,14 +516,12 @@ where
                                 ));
                             }
                         }
-                        return event::Status::Captured;
+                        shell.capture_event();
                     }
                 }
             }
             _ => {}
         }
-
-        event::Status::Ignored
     }
 
     fn mouse_interaction(

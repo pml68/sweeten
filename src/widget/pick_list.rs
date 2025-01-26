@@ -1,11 +1,10 @@
-//! Pick lists display a dropdown list of selectable options.
+//! Pick lists display a dropdown list of selectable items, with optional disabled items.
 //!
 //! # Example
 //! ```no_run
-//! # mod iced { pub mod widget { pub use iced_widget::*; } pub use iced_widget::Renderer; pub use iced_widget::core::*; }
-//! # pub type Element<'a, Message> = iced_widget::core::Element<'a, Message, iced_widget::Theme, iced_widget::Renderer>;
+//! # pub type Element<'a, Message> = iced::Element<'a, Message, iced::Theme, iced::Renderer>;
 //! #
-//! use iced::widget::pick_list;
+//! use sweeten::widget::pick_list;
 //!
 //! struct State {
 //!    favorite: Option<Fruit>,
@@ -25,7 +24,7 @@
 //! }
 //!
 //! fn view(state: &State) -> Element<'_, Message> {
-//!     let fruits = [
+//!     let sweet_fruits = [
 //!         Fruit::Apple,
 //!         Fruit::Orange,
 //!         Fruit::Strawberry,
@@ -33,11 +32,14 @@
 //!     ];
 //!
 //!     pick_list(
-//!         fruits,
+//!         sweet_fruits,
+//!         Some(|fruits: &[Fruit]| {
+//!            fruits.iter().map(|fruit| fruit == &Fruit::Tomato).collect()
+//!         }),
 //!         state.favorite,
 //!         Message::FruitSelected,
 //!     )
-//!     .placeholder("Select your favorite fruit...")
+//!     .placeholder("Select your favorite sweet fruit...")
 //!     .into()
 //! }
 //!
@@ -89,7 +91,7 @@ use iced::advanced::{
     layout, mouse, overlay, renderer, Clipboard, Layout, Shell, Widget,
 };
 use iced::alignment;
-use iced::event::{self, Event};
+use iced::event::Event;
 use iced::keyboard;
 use iced::touch;
 use iced::{
@@ -102,14 +104,13 @@ use std::f32;
 
 use crate::widget::overlay::menu::{self, Menu};
 
-/// A widget for selecting a single value from a list of options.
+/// A widget for selecting a single value from a list, with some items optionally disabled.
 ///
 /// # Example
 /// ```no_run
-/// # mod iced { pub mod widget { pub use iced_widget::*; } pub use iced_widget::Renderer; pub use iced_widget::core::*; }
-/// # pub type Element<'a, Message> = iced_widget::core::Element<'a, Message, iced_widget::Theme, iced_widget::Renderer>;
+/// # pub type Element<'a, Message> = iced::Element<'a, Message, iced::Theme, iced::Renderer>;
 /// #
-/// use iced::widget::pick_list;
+/// use sweeten::widget::pick_list;
 ///
 /// struct State {
 ///    favorite: Option<Fruit>,
@@ -129,7 +130,7 @@ use crate::widget::overlay::menu::{self, Menu};
 /// }
 ///
 /// fn view(state: &State) -> Element<'_, Message> {
-///     let fruits = [
+///     let sweet_fruits = [
 ///         Fruit::Apple,
 ///         Fruit::Orange,
 ///         Fruit::Strawberry,
@@ -137,11 +138,14 @@ use crate::widget::overlay::menu::{self, Menu};
 ///     ];
 ///
 ///     pick_list(
-///         fruits,
+///         sweet_fruits,
+///         Some(|fruits: &[Fruit]| {
+///             fruits.iter().map(|fruit| fruit == &Fruit::Tomato).collect()
+///         }),
 ///         state.favorite,
 ///         Message::FruitSelected,
 ///     )
-///     .placeholder("Select your favorite fruit...")
+///     .placeholder("Select your favorite sweet fruit...")
 ///     .into()
 /// }
 ///
@@ -449,7 +453,7 @@ where
         layout::Node::new(size)
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
         event: Event,
@@ -459,7 +463,7 @@ where
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerPressed { .. }) => {
@@ -472,7 +476,7 @@ where
                         if let Some(disabled_fn) = &self.disabled {
                             let disabled = disabled_fn(options);
                             if hovered < disabled.len() && disabled[hovered] {
-                                return event::Status::Captured;
+                                shell.capture_event();
                             }
                         }
                     }
@@ -486,7 +490,7 @@ where
                         shell.publish(on_close.clone());
                     }
 
-                    event::Status::Captured
+                    shell.capture_event();
                 } else if cursor.is_over(layout.bounds()) {
                     let selected = self.selected.as_ref().map(Borrow::borrow);
 
@@ -501,9 +505,7 @@ where
                         shell.publish(on_open.clone());
                     }
 
-                    event::Status::Captured
-                } else {
-                    event::Status::Ignored
+                    shell.capture_event();
                 }
             }
             Event::Mouse(mouse::Event::WheelScrolled {
@@ -589,9 +591,7 @@ where
                         shell.publish((self.on_select)(next_option.clone()));
                     }
 
-                    event::Status::Captured
-                } else {
-                    event::Status::Ignored
+                    shell.capture_event();
                 }
             }
             Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
@@ -599,10 +599,8 @@ where
                     tree.state.downcast_mut::<State<Renderer::Paragraph>>();
 
                 state.keyboard_modifiers = modifiers;
-
-                event::Status::Ignored
             }
-            _ => event::Status::Ignored,
+            _ => {}
         }
     }
 

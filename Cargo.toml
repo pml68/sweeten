@@ -1,6 +1,6 @@
 [package]
 name = "sweeten"
-version = "0.2.0"
+version = "0.14.0-dev"
 edition = "2021"
 authors = ["Andy Terra <spam@andyterra.com>"]
 description = "`sweeten` your daily `iced` brew"
@@ -11,5 +11,6 @@ categories = ["gui"]
 readme = "README.md"
 
 [dependencies]
-iced.version = "0.13"
+iced.git = "https://github.com/iced-rs/iced.git"
+iced.branch = "master"
 iced.features = ["advanced"]
