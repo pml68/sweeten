@@ -1,4 +1,6 @@
-//! Distribute content horizontally.
+//! Distribute content horizontally and find the position of a specific child by index
+//! within the widget identified by the given [`Id`].
+//
 // This widget is a modification of the original `Row` widget from [`iced`]
 //
 // [`iced`]: https://github.com/iced-rs/iced
@@ -58,6 +60,7 @@ use crate::operation::position;
 /// ```
 #[allow(missing_debug_implementations)]
 pub struct Row<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer> {
+    id: Option<position::Id>,
     spacing: f32,
     padding: Padding,
     width: Length,
@@ -101,6 +104,7 @@ where
         children: Vec<Element<'a, Message, Theme, Renderer>>,
     ) -> Self {
         Self {
+            id: None,
             spacing: 0.0,
             padding: Padding::ZERO,
             width: Length::Shrink,
@@ -109,6 +113,12 @@ where
             clip: false,
             children,
         }
+    }
+
+    /// Sets the id of the [`Row`].
+    pub fn id(mut self, id: position::Id) -> Self {
+        self.id = Some(id);
+        self
     }
 
     /// Sets the horizontal spacing _between_ elements.
@@ -317,19 +327,27 @@ where
     ) {
         let state = tree.state.downcast_mut::<State>();
 
-        operation.custom(None, layout.bounds(), state);
+        operation.container(
+            self.id.as_ref().map(|id| &id.0),
+            layout.bounds(),
+            &mut |operation| {
+                self.children
+                    .iter()
+                    .zip(&mut tree.children)
+                    .zip(layout.children())
+                    .for_each(|((child, state), layout)| {
+                        child
+                            .as_widget()
+                            .operate(state, layout, renderer, operation);
+                    });
+            },
+        );
 
-        operation.container(None, layout.bounds(), &mut |operation| {
-            self.children
-                .iter()
-                .zip(&mut tree.children)
-                .zip(layout.children())
-                .for_each(|((child, state), layout)| {
-                    child
-                        .as_widget()
-                        .operate(state, layout, renderer, operation);
-                });
-        });
+        operation.custom(
+            self.id.as_ref().map(|id| &id.0),
+            layout.bounds(),
+            &mut state.positions,
+        );
     }
 
     fn update(
