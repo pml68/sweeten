@@ -309,13 +309,24 @@ where
     }
 }
 
-impl<'a, T, Message, Theme, Renderer> From<T>
-    for FlexChild<'a, Message, Theme, Renderer>
+impl<'a, Message, Theme, Renderer> FlexChild<'a, Message, Theme, Renderer>
 where
-    T: Into<Element<'a, Message, Theme, Renderer>>,
     Renderer: renderer::Renderer,
 {
-    fn from(element: T) -> Self {
+    pub fn from<T>(element: T) -> Self
+    where
+        T: Into<Element<'a, Message, Theme, Renderer>>,
+    {
         Self::new(element)
+    }
+}
+
+impl<'a, Message, Theme, Renderer> From<FlexChild<'a, Message, Theme, Renderer>>
+    for Element<'a, Message, Theme, Renderer>
+where
+    Renderer: renderer::Renderer,
+{
+    fn from(child: FlexChild<'a, Message, Theme, Renderer>) -> Self {
+        child.content
     }
 }
