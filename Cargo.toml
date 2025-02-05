@@ -11,10 +11,17 @@ categories = ["gui"]
 readme = "README.md"
 
 [dependencies]
-iced.version = "0.13"
-iced.features = ["advanced"]
+iced = { git = "https://github.com/airstrike/iced.git", branch = "latest", features = [
+    "advanced",
+    "image",
+    "canvas",
+] }
 
 [dev-dependencies]
-iced.version = "0.13"
-iced.features = ["advanced", "debug", "image", "canvas"]
+iced = { git = "https://github.com/airstrike/iced.git", branch = "latest", features = [
+    "advanced",
+    "debug",
+    "image",
+    "canvas",
+] }
 rand = "0.8.5"
