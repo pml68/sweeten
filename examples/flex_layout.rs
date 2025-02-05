@@ -11,9 +11,8 @@ use iced::{
     Shrink, Subscription, Theme,
 };
 
-use sweeten::layout::FlexAlignment;
 use sweeten::layout::JustifyContent;
-use sweeten::{column, flex, row, Column, Row};
+use sweeten::{column, row};
 
 pub fn main() -> iced::Result {
     iced::application(Layout::title, Layout::update, Layout::view)

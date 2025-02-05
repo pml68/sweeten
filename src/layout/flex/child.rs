@@ -1,13 +1,8 @@
-#![allow(unused_imports, dead_code)]
 use iced::advanced::layout::{self, Layout};
-use iced::advanced::widget::{self, tree, Operation, Tree, Widget};
+use iced::advanced::widget::{self, Tree};
 use iced::advanced::{overlay, renderer, Clipboard, Shell};
 use iced::event::{self, Event};
-use iced::{mouse, Transformation};
-use iced::{
-    Background, Border, Color, Element, Length, Padding, Pixels, Point,
-    Rectangle, Size, Theme, Vector,
-};
+use iced::{mouse, Element, Length, Rectangle, Vector};
 
 use crate::layout::flex::Axis;
 
@@ -38,13 +33,6 @@ impl FlexProperties {
         match axis {
             Axis::Horizontal => &self.horizontal,
             Axis::Vertical => &self.vertical,
-        }
-    }
-
-    pub(crate) fn cross(&self, axis: Axis) -> &AxisProperties {
-        match axis {
-            Axis::Horizontal => &self.vertical,
-            Axis::Vertical => &self.horizontal,
         }
     }
 }
@@ -167,22 +155,6 @@ where
     /// Gets the inner content
     pub fn content(&self) -> &Element<'a, Message, Theme, Renderer> {
         &self.content
-    }
-
-    /// Gets the size hints for this child
-    pub(super) fn size_hints(&self) -> Size<Length> {
-        let content_size = self.content.as_widget().size();
-
-        Size {
-            width: match self.properties.horizontal.basis {
-                Some(basis) => Length::Fixed(basis),
-                None => content_size.width,
-            },
-            height: match self.properties.vertical.basis {
-                Some(basis) => Length::Fixed(basis),
-                None => content_size.height,
-            },
-        }
     }
 }
 
@@ -341,7 +313,6 @@ impl<'a, T, Message, Theme, Renderer> From<T>
     for FlexChild<'a, Message, Theme, Renderer>
 where
     T: Into<Element<'a, Message, Theme, Renderer>>,
-    Theme: iced::widget::container::Catalog + 'a,
     Renderer: renderer::Renderer,
 {
     fn from(element: T) -> Self {

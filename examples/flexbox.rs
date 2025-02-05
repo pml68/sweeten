@@ -1,6 +1,6 @@
 use iced::widget::{
     column as iced_column, container, horizontal_rule, pick_list,
-    row as iced_row, text, toggler, vertical_rule,
+    row as iced_row, slider, text, toggler, vertical_rule,
 };
 use iced::Length::{Fill, Shrink};
 use iced::{Center, Element, Task, Theme};
@@ -28,6 +28,7 @@ pub fn main() -> iced::Result {
 
 struct App {
     elements: Vec<Fruit>,
+    amount: u8,
     mode: Mode,
     explain: bool,
     justify: Justify,
@@ -39,6 +40,7 @@ impl Default for App {
     fn default() -> Self {
         Self {
             elements: vec![],
+            amount: 5,
             mode: Mode::Row,
             explain: false,
             justify: Justify::Start,
@@ -50,6 +52,7 @@ impl Default for App {
 
 #[derive(Debug, Clone)]
 enum Message {
+    Amount(u8),
     Reorder(DragEvent),
     Mode(Mode),
     Justify(Justify),
@@ -62,7 +65,8 @@ impl App {
     fn new() -> (Self, Task<Message>) {
         (
             Self {
-                elements: Fruit::ALL.to_vec(),
+                elements: Fruit::fruits(5),
+                amount: 5,
                 ..Default::default()
             },
             Task::none(),
@@ -85,6 +89,10 @@ impl App {
             }
             Message::Grow(b) => {
                 self.grow = b;
+            }
+            Message::Amount(amount) => {
+                self.amount = amount;
+                self.elements = Fruit::fruits(amount);
             }
             Message::Reorder(event) => {
                 match event {
@@ -327,8 +335,15 @@ impl App {
                     iced_column![text("Flex Layout").size(20), flex_container]
                         .spacing(10)
                         .width(Fill),
+                ],
+                iced_row![
+                    text(format!("Fruit count: {}", self.amount)).size(12),
+                    slider(1..=10, self.amount, Message::Amount)
+                        .step(1)
+                        .width(Fill)
                 ]
-                .spacing(20)
+                .spacing(10)
+                .padding([0.0, 10.0])
             ]
             .spacing(20)
             .padding(20),
@@ -350,16 +365,35 @@ enum Fruit {
     Cherry,
     Date,
     Elderberry,
+    Fig,
+    Grape,
+    Honeydew,
+    Kiwi,
+    Jackfruit,
 }
 
 impl Fruit {
-    const ALL: [Fruit; 5] = [
+    const ALL: [Fruit; 10] = [
         Fruit::Apple,
         Fruit::Banana,
         Fruit::Cherry,
         Fruit::Date,
         Fruit::Elderberry,
+        Fruit::Fig,
+        Fruit::Grape,
+        Fruit::Honeydew,
+        Fruit::Kiwi,
+        Fruit::Jackfruit,
     ];
+
+    fn fruits(amount: u8) -> Vec<Fruit> {
+        Fruit::ALL
+            .iter()
+            .cycle()
+            .take(amount as usize)
+            .copied()
+            .collect()
+    }
 
     fn wrapped<'a>(
         &self,
@@ -405,6 +439,19 @@ impl Fruit {
                 .height(Shrink)
                 .spacing(5)
                 .align_y(Center),
+            ),
+            Fruit::Fig => self.wrapped(text("The quick brown fig").size(10)),
+            Fruit::Grape => {
+                self.wrapped(text("🍇").shaping(text::Shaping::Advanced))
+            }
+            Fruit::Honeydew => {
+                self.wrapped(text("🍈").shaping(text::Shaping::Advanced))
+            }
+            Fruit::Kiwi => {
+                self.wrapped(text("🥝").shaping(text::Shaping::Advanced))
+            }
+            Fruit::Jackfruit => self.wrapped(
+                text("All work and no play makes Jack a dull boy").size(10),
             ),
         }
     }
