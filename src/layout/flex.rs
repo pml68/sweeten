@@ -6,11 +6,10 @@ pub mod child;
 pub use child::{FlexChild, FlexProperties};
 
 /// Create a [`FlexChild`] with additional configuration options
-pub fn flex<'a, E, Message, Theme, Renderer>(
-    element: E,
+pub fn flex<'a, Message, Theme, Renderer>(
+    element: impl Into<Element<'a, Message, Theme, Renderer>>,
 ) -> FlexChild<'a, Message, Theme, Renderer>
 where
-    E: Into<Element<'a, Message, Theme, Renderer>>,
     Renderer: renderer::Renderer,
 {
     FlexChild::new(element)
