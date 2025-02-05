@@ -78,6 +78,16 @@ impl From<JustifyContent> for Alignment {
     }
 }
 
+impl From<iced::Alignment> for JustifyContent {
+    fn from(alignment: iced::Alignment) -> Self {
+        match alignment {
+            Alignment::Start => JustifyContent::Start,
+            Alignment::Center => JustifyContent::Center,
+            Alignment::End => JustifyContent::End,
+        }
+    }
+}
+
 impl From<JustifyContent> for iced::alignment::Horizontal {
     fn from(justify: JustifyContent) -> Self {
         Alignment::from(justify).into()
