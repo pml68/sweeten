@@ -5,6 +5,7 @@ use std::borrow::Borrow;
 pub mod mouse_area;
 pub mod overlay;
 pub mod pick_list;
+pub mod text_input;
 
 /// A container intercepting mouse events.
 pub fn mouse_area<'a, Message, Theme, Renderer>(
@@ -33,4 +34,20 @@ where
     Renderer: text::Renderer,
 {
     pick_list::PickList::new(options, disabled, selected, on_selected)
+}
+
+/// Creates a new [`TextInput`].
+///
+/// Text inputs display fields that can be filled with text. This version
+/// also allows you to publish messages `.on_focus` and `.on_blur`.
+pub fn text_input<'a, Message, Theme, Renderer>(
+    placeholder: &str,
+    value: &str,
+) -> text_input::TextInput<'a, Message, Theme, Renderer>
+where
+    Message: Clone,
+    Theme: text_input::Catalog + 'a,
+    Renderer: text::Renderer,
+{
+    text_input::TextInput::new(placeholder, value)
 }

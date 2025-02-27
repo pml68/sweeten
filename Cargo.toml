@@ -11,5 +11,6 @@ categories = ["gui"]
 readme = "README.md"
 
 [dependencies]
-iced.version = "0.13"
+iced.version = "0.13.1"
 iced.features = ["advanced"]
+unicode-segmentation = "1.11.0"
