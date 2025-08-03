@@ -2,7 +2,7 @@ use iced::advanced::widget;
 use iced::widget::{button, center, column, container, row, text};
 use iced::{Center, Element, Fill, Subscription, Task};
 
-use sweeten::widget::text_input;
+use sweeten::widget::{operation, text_input};
 
 fn main() -> iced::Result {
     iced::application(
@@ -189,7 +189,7 @@ impl App {
                 }
             }
             Message::FocusNext => {
-                return text_input::focus_next(|id| {
+                return operation::focus_next(|id| {
                     Field::from_widget_id(id).map_or_else(
                         || Task::none(),
                         |field| Task::done(Message::InputFocused(field)),
@@ -197,7 +197,7 @@ impl App {
                 });
             }
             Message::FocusPrevious => {
-                return text_input::focus_previous(|id| {
+                return operation::focus_previous(|id| {
                     Field::from_widget_id(id).map_or_else(
                         || Task::none(),
                         |field| Task::done(Message::InputFocused(field)),

@@ -1296,32 +1296,6 @@ where
     widget::operate(widget::operation::focusable::focus(id.0))
 }
 
-/// Produces a [`Task`] that focuses the next focusable widget
-/// and then applies the provided function to create a resulting task.
-pub fn focus_next<T, F>(f: F) -> Task<T>
-where
-    T: Send + 'static,
-    F: Send + Sync + Fn(widget::Id) -> Task<T> + 'static,
-{
-    widget::operate(widget::operation::focusable::focus_next()).chain(
-        widget::operate(widget::operation::focusable::find_focused())
-            .then(move |id| f(id)),
-    )
-}
-
-/// Produces a [`Task`] that focuses the previous focusable widget
-/// and then applies the provided function to create a resulting task.
-pub fn focus_previous<T, F>(f: F) -> Task<T>
-where
-    T: Send + 'static,
-    F: Send + Sync + Fn(widget::Id) -> Task<T> + 'static,
-{
-    widget::operate(widget::operation::focusable::focus_previous()).chain(
-        widget::operate(widget::operation::focusable::find_focused())
-            .then(move |id| f(id)),
-    )
-}
-
 /// Produces a [`Task`] that moves the cursor of the [`TextInput`] with the given [`Id`] to the
 /// end.
 pub fn move_cursor_to_end<T>(id: impl Into<Id>) -> Task<T>

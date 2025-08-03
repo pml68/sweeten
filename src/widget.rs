@@ -3,6 +3,7 @@ use iced::Element;
 use std::borrow::Borrow;
 
 pub mod mouse_area;
+pub mod operation;
 pub mod overlay;
 pub mod pick_list;
 pub mod text_input;
