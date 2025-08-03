@@ -65,7 +65,15 @@ pick_list(
 A sweetened version of `iced`'s `text_input` widget with additional focus-related features:
 
 - `.on_focus` and `.on_blur` methods for handling focus events
-- Sweetened `focus_next` and `focus_previous` focus management functions, which return the ID of the focused element
+- Sweetened `focus_next` and `focus_previous` focus management functions, which return the ID of the focused element (these work on any focusable element)
+
+### `Button`
+
+A sweetened version of `iced`'s `button` widget - made focusable.
+
+Additional changes include:
+- `.on_focus` and `.on_blur` methods for handling focus events
+- `background` and `subtle` styling methods backported from `0.14`
 
 ## Examples
 
@@ -79,6 +87,7 @@ Other examples include:
 ```bash
 cargo run --example pick_list
 cargo run --example text_input
+cargo run --example button
 ```
 
 ## Code Structure
@@ -89,6 +98,8 @@ The library is organized into modules for each enhanced widget:
   - `mouse_area.rs`: Sweetened mouse interaction handling
   - `pick_list.rs`: Sweetened pick list with item disabling
   - `text_input.rs`: Sweetened text input with focus handling
+  - `button.rs`: Sweetened focusable button
+  - `operation.rs`: Widget independent extra `Operation`s & `Task`s
   - (more widgets coming soon!)
 
 ## Planned Features
@@ -96,6 +107,7 @@ The library is organized into modules for each enhanced widget:
 - [x] MouseArea widget
 - [x] PickList widget
 - [x] TextInput widget with focus management
+- [x] Focusable Button 
 - [ ] Row and Column with drag and drop and enhanced layout capabilities
 
 ## Contributing
