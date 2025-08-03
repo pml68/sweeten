@@ -13,4 +13,6 @@ readme = "README.md"
 [dependencies]
 iced.version = "0.13.1"
 iced.features = ["advanced"]
+
+iced_core = "0.13.2"
 unicode-segmentation = "1.11.0"

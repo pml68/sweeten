@@ -2837,6 +2837,7 @@ name = "sweeten"
 version = "0.2.0"
 dependencies = [
  "iced",
+ "iced_core",
  "unicode-segmentation",
 ]
 

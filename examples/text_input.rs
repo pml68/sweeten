@@ -1,8 +1,8 @@
 use iced::advanced::widget;
-use iced::widget::{button, center, column, container, row, text};
+use iced::widget::{center, column, container, row, text};
 use iced::{Center, Element, Fill, Subscription, Task};
 
-use sweeten::widget::{operation, text_input};
+use sweeten::widget::{button, operation, text_input};
 
 fn main() -> iced::Result {
     iced::application(

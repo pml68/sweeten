@@ -2,11 +2,22 @@ use iced::advanced::text;
 use iced::Element;
 use std::borrow::Borrow;
 
+pub mod button;
 pub mod mouse_area;
 pub mod operation;
 pub mod overlay;
 pub mod pick_list;
 pub mod text_input;
+
+pub fn button<'a, Message, Theme, Renderer>(
+    content: impl Into<Element<'a, Message, Theme, Renderer>>,
+) -> button::Button<'a, Message, Theme, Renderer>
+where
+    Renderer: iced::advanced::Renderer,
+    Theme: button::Catalog,
+{
+    button::Button::new(content)
+}
 
 /// A container intercepting mouse events.
 pub fn mouse_area<'a, Message, Theme, Renderer>(
