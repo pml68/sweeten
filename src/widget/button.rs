@@ -1,4 +1,4 @@
-// This widget is a modification of the original `TextInput` widget from [`iced`]
+// This widget is a modification of the original `Button` widget from [`iced`]
 //
 // [`iced`]: https://github.com/iced-rs/iced
 //
